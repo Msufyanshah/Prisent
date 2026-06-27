@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.routes.health import router as health_router
 from app.routes.auth import router as auth_router
+from app.routes.persona import router as persona_router
 from app.utils.envelope import http_exception_handler, validation_exception_handler
 from fastapi.exceptions import RequestValidationError, HTTPException
 
@@ -25,11 +26,15 @@ app.add_middleware(
 
 app.include_router(health_router)
 app.include_router(auth_router)
+app.include_router(persona_router)
 
 @app.get("/")
 async def root():
     return {"message": "Welcome to AutoPost AI API"}
 
+from app.services.qdrant_setup import create_collections
+
 @app.on_event("startup")
 async def startup():
+    create_collections()
     print(f"AutoPost AI starting — env: {settings.ENV}")
