@@ -1,0 +1,2015 @@
+# TASKS — AutoPost AI v2.0
+
+> Version: 2.0 | Status: Active | Last updated: June 2026
+
+---
+
+## How to Read This Document
+
+Every task follows this structure:
+
+```
+TASK-XXX — Title
+├── Day / Estimate / Depends on / Status
+├── WHAT        → One sentence: what artifact does this produce?
+├── WHY         → Why does this task exist? What breaks without it?
+├── FILES       → Exact file paths to create or modify
+├── HOW         → Step-by-step implementation guide with code
+├── SMOKE TEST  → Exact commands to run. Must pass before task is done.
+├── PHR TRIGGER → What to record in the PHR after this task
+└── NEXT        → What task this unlocks
+```
+
+**Rules:**
+- Max 5 tasks per day — hard cap
+- Smoke test must PASS before marking done
+- PHR must be filed before starting next task
+- If blocked > 30 min on one step → log it in PHR immediately
+
+---
+
+# WEEK 1 — Foundation & Backend Core
+
+---
+
+## DAY 1 — Project Skeleton (5 tasks)
+
+**Day goal:** A running FastAPI server connected to PostgreSQL and Redis,
+with working auth endpoints. Nothing AI yet. Just the plumbing.
+
+---
+
+### TASK-001 — Initialise Mono-Repo
+
+**Day:** D1 | **Estimate:** 30min | **Depends on:** none | **Status:** todo
+
+**WHAT:** Create the GitHub repository with correct mono-repo structure.
+
+**WHY:** Every other task depends on a clean repo. A messy repo structure
+causes confusion for both human and AI collaborators throughout the build.
+
+**FILES TO CREATE:**
+```
+autopost-ai/
+├── backend/
+│   └── README.md
+├── frontend/
+│   └── README.md
+├── speckit/              ← already exists
+├── .gitignore
+└── README.md
+```
+
+**HOW:**
+```bash
+# Step 1: Create repo on GitHub (via UI) named "autopost-ai"
+# Step 2: Clone it locally
+git clone https://github.com/YOUR_USERNAME/autopost-ai.git
+cd autopost-ai
+
+# Step 3: Create structure
+mkdir -p backend frontend
+echo "# AutoPost AI Backend" > backend/README.md
+echo "# AutoPost AI Frontend" > frontend/README.md
+
+# Step 4: Create .gitignore
+cat > .gitignore << 'EOF'
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+*.pyc
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+.next/
+out/
+.vercel/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Docker
+*.log
+EOF
+
+# Step 5: First commit
+git add .
+git commit -m "chore: initialise mono-repo structure"
+git push origin main
+```
+
+**SMOKE TEST:**
+```bash
+# All 3 must pass:
+ls backend/README.md frontend/README.md .gitignore   # Files exist
+git status                                            # Clean working tree
+git log --oneline -1                                 # Shows commit message
+```
+
+**PHR TRIGGER:** After smoke test passes, file `08-phr/PHR-001.md`
+Record: time taken, any issues with GitHub setup.
+
+**NEXT:** Unlocks TASK-002
+
+---
+
+### TASK-002 — FastAPI Backend Skeleton
+
+**Day:** D1 | **Estimate:** 1.5h | **Depends on:** TASK-001 | **Status:** todo
+
+**WHAT:** Create a runnable FastAPI application with correct folder structure,
+config system, and a health check endpoint.
+
+**WHY:** Every backend task builds on this skeleton. The folder structure
+defines where every future file lives. Getting this wrong means reorganising
+mid-build — the most disruptive mistake possible.
+
+**FILES TO CREATE:**
+```
+backend/
+├── app/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── config.py
+│   ├── database.py
+│   ├── models/
+│   │   └── __init__.py
+│   ├── schemas/
+│   │   └── __init__.py
+│   ├── routes/
+│   │   ├── __init__.py
+│   │   └── health.py
+│   ├── services/
+│   │   └── __init__.py
+│   ├── agents/
+│   │   └── __init__.py
+│   ├── tasks/
+│   │   └── __init__.py
+│   └── constants/
+│       └── __init__.py
+├── requirements.txt
+└── .env.example
+```
+
+**HOW:**
+
+```python
+# backend/app/main.py
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.config import settings
+from app.routes.health import router as health_router
+
+app = FastAPI(
+    title="AutoPost AI",
+    version="1.0.0",
+    description="Autonomous LinkedIn post generator"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(health_router)
+
+@app.on_event("startup")
+async def startup():
+    print(f"AutoPost AI starting — env: {settings.ENV}")
+```
+
+```python
+# backend/app/config.py
+from pydantic_settings import BaseSettings
+from typing import List
+
+class Settings(BaseSettings):
+    ENV: str = "development"
+    SECRET_KEY: str
+    DATABASE_URL: str
+    REDIS_URL: str
+    OPENAI_API_KEY: str
+    QDRANT_URL: str = "http://localhost:6333"
+    QDRANT_API_KEY: str = ""
+    ENCRYPTION_KEY: str
+    LINKEDIN_CLIENT_ID: str = ""
+    LINKEDIN_CLIENT_SECRET: str = ""
+    LINKEDIN_REDIRECT_URI: str = "http://localhost:8000/auth/linkedin/callback"
+    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000"]
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
+
+    class Config:
+        env_file = ".env"
+
+settings = Settings()
+```
+
+```python
+# backend/app/routes/health.py
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/health", tags=["health"])
+
+@router.get("")
+async def health_check():
+    return {"status": "ok", "service": "autopost-ai"}
+```
+
+```
+# backend/.env.example
+ENV=development
+SECRET_KEY=your-secret-key-here-change-in-production
+DATABASE_URL=postgresql://postgres:password@localhost:5432/autopost
+REDIS_URL=redis://localhost:6379/0
+OPENAI_API_KEY=sk-...
+QDRANT_URL=http://localhost:6333
+QDRANT_API_KEY=
+ENCRYPTION_KEY=  # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+LINKEDIN_CLIENT_ID=
+LINKEDIN_CLIENT_SECRET=
+LINKEDIN_REDIRECT_URI=http://localhost:8000/auth/linkedin/callback
+ALLOWED_ORIGINS=["http://localhost:3000"]
+```
+
+```
+# backend/requirements.txt
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+pydantic==2.7.0
+pydantic-settings==2.2.1
+sqlalchemy==2.0.30
+alembic==1.13.1
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.9
+httpx==0.27.0
+openai==1.30.0
+qdrant-client==1.9.0
+celery==5.4.0
+redis==5.0.4
+cryptography==42.0.7
+python-dotenv==1.0.1
+```
+
+**Installation:**
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate        # Mac/Linux
+# .venv\Scripts\activate         # Windows
+pip install -r requirements.txt
+cp .env.example .env
+# Fill in .env values
+```
+
+**SMOKE TEST:**
+```bash
+cd backend
+source .venv/bin/activate
+uvicorn app.main:app --reload &
+sleep 2
+
+# Test 1: Server is running
+curl http://localhost:8000/health
+# Expected: {"status":"ok","service":"autopost-ai"}
+
+# Test 2: OpenAPI docs load
+curl -s http://localhost:8000/docs | grep -c "AutoPost AI"
+# Expected: 1 or more
+
+# Test 3: Unknown route returns 404 not 500
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/nonexistent
+# Expected: 404
+
+pkill -f uvicorn
+```
+
+**PHR TRIGGER:** File `08-phr/PHR-002.md`
+Record: did all 3 smoke tests pass? Any import errors?
+
+**NEXT:** Unlocks TASK-003
+
+---
+
+### TASK-003 — Docker Compose: PostgreSQL + Redis + Qdrant
+
+**Day:** D1 | **Estimate:** 1h | **Depends on:** TASK-001 | **Status:** todo
+
+**WHAT:** A single `docker-compose.yml` that starts PostgreSQL 16, Redis 7,
+and Qdrant — the three infrastructure dependencies for the backend.
+
+**WHY:** Local dev must match production as closely as possible.
+Using system-installed services creates "works on my machine" bugs.
+Docker Compose eliminates this class of problem entirely.
+
+**FILES TO CREATE:**
+```
+backend/
+└── docker-compose.yml
+```
+
+**HOW:**
+```yaml
+# backend/docker-compose.yml
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: autopost_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: autopost
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: autopost_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: autopost_qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  qdrant_data:
+```
+
+**How to start/stop:**
+```bash
+# Start all services
+cd backend
+docker-compose up -d
+
+# Check all are healthy
+docker-compose ps
+
+# Stop all
+docker-compose down
+
+# Stop and wipe all data (nuclear option)
+docker-compose down -v
+```
+
+**SMOKE TEST:**
+```bash
+cd backend
+docker-compose up -d
+sleep 10   # Wait for health checks
+
+# Test 1: PostgreSQL
+docker exec autopost_postgres pg_isready -U postgres
+# Expected: /var/run/postgresql:5432 - accepting connections
+
+# Test 2: Redis
+docker exec autopost_redis redis-cli ping
+# Expected: PONG
+
+# Test 3: Qdrant
+curl http://localhost:6333/health
+# Expected: {"title":"qdrant - vector search engine","version":"..."}
+
+# Test 4: Connect from Python
+python -c "
+import psycopg2
+conn = psycopg2.connect('postgresql://postgres:password@localhost:5432/autopost')
+print('PostgreSQL OK:', conn.server_version)
+conn.close()
+"
+# Expected: PostgreSQL OK: 160xxx
+```
+
+**PHR TRIGGER:** File `08-phr/PHR-003.md`
+Record: Docker startup time, any port conflicts on your machine.
+
+**NEXT:** Unlocks TASK-004
+
+---
+
+### TASK-004 — Database Models + Alembic Migrations
+
+**Day:** D1 | **Estimate:** 2h | **Depends on:** TASK-002, TASK-003 | **Status:** todo
+
+**WHAT:** SQLAlchemy models for all 4 tables (users, personas, posts, agent_jobs)
+plus Alembic migration that creates them in PostgreSQL.
+
+**WHY:** All backend logic reads and writes these tables. Getting schema wrong here
+means data migration pain throughout the build. Define it correctly once, never revisit.
+
+**FILES TO CREATE:**
+```
+backend/
+├── app/
+│   ├── database.py           ← modify
+│   └── models/
+│       ├── __init__.py
+│       ├── user.py
+│       ├── persona.py
+│       ├── post.py
+│       └── agent_job.py
+├── alembic.ini
+└── alembic/
+    ├── env.py
+    └── versions/
+        └── (empty — alembic generates this)
+```
+
+**HOW:**
+
+```python
+# backend/app/database.py
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from app.config import settings
+
+# Convert postgresql:// to postgresql+asyncpg://
+DATABASE_URL = settings.DATABASE_URL.replace(
+    "postgresql://", "postgresql+asyncpg://"
+)
+
+engine = create_async_engine(DATABASE_URL, echo=settings.ENV == "development")
+AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+Base = declarative_base()
+
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
+```
+
+```python
+# backend/app/models/user.py
+import uuid
+from datetime import datetime
+from sqlalchemy import Column, String, DateTime, Text
+from sqlalchemy.dialects.postgresql import UUID
+from app.database import Base
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    name = Column(String(255), nullable=True)
+    linkedin_access_token = Column(Text, nullable=True)   # stored encrypted
+    linkedin_token_expiry = Column(DateTime, nullable=True)
+    linkedin_person_id = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+```
+
+```python
+# backend/app/models/persona.py
+import uuid
+from datetime import datetime
+from sqlalchemy import Column, String, DateTime, Text, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID, ARRAY
+from app.database import Base
+
+class Persona(Base):
+    __tablename__ = "personas"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
+    name = Column(String(255), nullable=False)
+    headline = Column(String(255), nullable=False)
+    niche = Column(String(255), nullable=False)
+    content_pillars = Column(ARRAY(String), nullable=False)       # max 3
+    tone = Column(String(50), nullable=False)                      # professional|conversational|bold|storytelling
+    target_audience = Column(Text, nullable=False)
+    content_goal = Column(String(50), nullable=False)              # grow_followers|get_clients|build_authority|network
+    posting_frequency = Column(String(20), nullable=False)         # daily|3x_week|2x_week|weekly
+    avoid_topics = Column(ARRAY(String), nullable=True, default=[])
+    unique_differentiator = Column(Text, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+```
+
+```python
+# backend/app/models/post.py
+import uuid
+from datetime import datetime
+from sqlalchemy import Column, String, DateTime, Text, Integer, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
+from app.database import Base
+
+class Post(Base):
+    __tablename__ = "posts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    agent_job_id = Column(UUID(as_uuid=True), ForeignKey("agent_jobs.id"), nullable=True)
+    content = Column(Text, nullable=False)
+    hook = Column(String(500), nullable=True)                      # first line
+    topic = Column(String(255), nullable=True)
+    content_pillar = Column(String(255), nullable=True)
+    quality_score = Column(Integer, nullable=True)                 # 0-100
+    status = Column(String(20), nullable=False, default="draft")   # draft|scheduled|published|failed
+    scheduled_at = Column(DateTime, nullable=True)
+    published_at = Column(DateTime, nullable=True)
+    linkedin_post_id = Column(String(255), nullable=True)
+    impressions = Column(Integer, default=0)
+    reactions = Column(Integer, default=0)
+    comments = Column(Integer, default=0)
+    reposts = Column(Integer, default=0)
+    failure_reason = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+```
+
+```python
+# backend/app/models/agent_job.py
+import uuid
+from datetime import datetime
+from sqlalchemy import Column, String, DateTime, Text, Integer, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID, JSONB
+from app.database import Base
+
+class AgentJob(Base):
+    __tablename__ = "agent_jobs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    status = Column(String(20), nullable=False, default="pending")
+    # pending|researching|writing|reviewing|done|failed
+    progress_message = Column(String(255), nullable=True)
+    research_output = Column(JSONB, nullable=True)
+    draft_content = Column(Text, nullable=True)
+    review_notes = Column(Text, nullable=True)
+    quality_score = Column(Integer, nullable=True)
+    retries = Column(Integer, default=0)
+    error = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    completed_at = Column(DateTime, nullable=True)
+```
+
+**Alembic setup:**
+```bash
+cd backend
+alembic init alembic
+
+# Edit alembic/env.py — replace the target_metadata line:
+# from app.models import user, persona, post, agent_job  # noqa: F401
+# from app.database import Base
+# target_metadata = Base.metadata
+
+# Create first migration
+alembic revision --autogenerate -m "initial schema"
+alembic upgrade head
+```
+
+**SMOKE TEST:**
+```bash
+# Must be run with docker-compose services running
+cd backend
+source .venv/bin/activate
+
+# Test 1: Migration applies cleanly
+alembic upgrade head
+# Expected: No errors, "Running upgrade -> xxxx, initial schema"
+
+# Test 2: All tables exist
+python -c "
+import psycopg2
+conn = psycopg2.connect('postgresql://postgres:password@localhost:5432/autopost')
+cur = conn.cursor()
+cur.execute(\"SELECT tablename FROM pg_tables WHERE schemaname='public'\")
+tables = [r[0] for r in cur.fetchall()]
+print('Tables:', tables)
+assert 'users' in tables
+assert 'personas' in tables
+assert 'posts' in tables
+assert 'agent_jobs' in tables
+print('All 4 tables exist — PASS')
+conn.close()
+"
+
+# Test 3: Rollback works
+alembic downgrade -1
+alembic upgrade head
+# Expected: No errors on both commands
+```
+
+**PHR TRIGGER:** File `08-phr/PHR-004.md`
+Record: Any Alembic errors, schema deviations from Contracts.
+
+**NEXT:** Unlocks TASK-005
+
+---
+
+### TASK-005 — Auth Service + Register/Login Endpoints
+
+**Day:** D1 | **Estimate:** 1.5h | **Depends on:** TASK-004 | **Status:** todo
+
+**WHAT:** Working `/auth/register` and `/auth/login` endpoints that return JWTs,
+plus a JWT verification dependency for use in all future protected routes.
+
+**WHY:** Every other endpoint is protected. Getting auth right in Day 1 means
+every future route is secured correctly by default.
+
+**FILES TO CREATE:**
+```
+backend/app/
+├── services/
+│   └── auth.py
+├── schemas/
+│   └── user.py
+└── routes/
+    └── auth.py
+```
+
+**HOW:**
+
+```python
+# backend/app/services/auth.py
+from datetime import datetime, timedelta
+from typing import Optional
+import uuid
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from app.config import settings
+from app.models.user import User
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+def verify_password(plain: str, hashed: str) -> bool:
+    return pwd_context.verify(plain, hashed)
+
+def create_access_token(user_id: str) -> str:
+    expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    payload = {"sub": user_id, "exp": expire, "iat": datetime.utcnow()}
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
+
+def decode_token(token: str) -> Optional[str]:
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        return payload.get("sub")
+    except JWTError:
+        return None
+
+async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
+    result = await db.execute(select(User).where(User.email == email))
+    return result.scalar_one_or_none()
+
+async def get_current_user(token: str, db: AsyncSession) -> Optional[User]:
+    user_id = decode_token(token)
+    if not user_id:
+        return None
+    result = await db.execute(select(User).where(User.id == user_id))
+    return result.scalar_one_or_none()
+```
+
+```python
+# backend/app/schemas/user.py
+from pydantic import BaseModel, EmailStr, field_validator
+import re
+
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+    name: str
+
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v):
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return v
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class AuthResponse(BaseModel):
+    user_id: str
+    token: str
+    name: str
+```
+
+```python
+# backend/app/routes/auth.py
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.database import get_db
+from app.models.user import User
+from app.schemas.user import RegisterRequest, LoginRequest, AuthResponse
+from app.services.auth import (
+    hash_password, verify_password, create_access_token,
+    get_user_by_email, get_current_user
+)
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+security = HTTPBearer()
+
+@router.post("/register", response_model=AuthResponse, status_code=201)
+async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    existing = await get_user_by_email(db, body.email)
+    if existing:
+        raise HTTPException(status_code=400, detail={"code": "EMAIL_TAKEN", "message": "Email already registered"})
+
+    user = User(
+        email=body.email,
+        hashed_password=hash_password(body.password),
+        name=body.name
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    token = create_access_token(str(user.id))
+    return AuthResponse(user_id=str(user.id), token=token, name=user.name)
+
+@router.post("/login", response_model=AuthResponse)
+async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+    user = await get_user_by_email(db, body.email)
+    if not user or not verify_password(body.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail={"code": "INVALID_CREDENTIALS", "message": "Invalid email or password"})
+
+    token = create_access_token(str(user.id))
+    return AuthResponse(user_id=str(user.id), token=token, name=user.name)
+
+
+# Reusable dependency for all protected routes
+async def require_auth(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db)
+) -> User:
+    user = await get_current_user(credentials.credentials, db)
+    if not user:
+        raise HTTPException(status_code=401, detail={"code": "UNAUTHORIZED", "message": "Invalid or expired token"})
+    return user
+```
+
+**Register the router in main.py:**
+```python
+# Add to backend/app/main.py
+from app.routes.auth import router as auth_router
+app.include_router(auth_router)
+```
+
+**SMOKE TEST:**
+```bash
+cd backend
+source .venv/bin/activate
+uvicorn app.main:app --reload &
+sleep 2
+
+# Test 1: Register new user
+curl -s -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@autopost.ai","password":"Test1234!","name":"Test User"}' | jq .
+# Expected: {"user_id":"...","token":"eyJ...","name":"Test User"}
+
+# Test 2: Duplicate email is rejected
+curl -s -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@autopost.ai","password":"Test1234!","name":"Test User"}' | jq .error
+# Expected: {"code":"EMAIL_TAKEN","message":"Email already registered"}
+
+# Test 3: Login works
+curl -s -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@autopost.ai","password":"Test1234!"}' | jq .token
+# Expected: "eyJ..." (a JWT string)
+
+# Test 4: Wrong password is rejected
+curl -s -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@autopost.ai","password":"wrongpassword"}' | jq .detail.code
+# Expected: "INVALID_CREDENTIALS"
+
+pkill -f uvicorn
+```
+
+**PHR TRIGGER:** File `08-phr/PHR-005.md`
+Record: All 4 smoke tests passed? JWT format correct? Password hashing working?
+**This is the Day 1 Integration Checkpoint PHR — also verify TASK-001 through 005 work together.**
+
+**NEXT:** Unlocks TASK-006 (Day 2)
+
+---
+
+# DAY 1 INTEGRATION CHECKPOINT
+**After TASK-005:** Verify the whole day's work together.
+```bash
+docker-compose up -d
+uvicorn app.main:app --reload &
+
+# Full chain: server → DB → auth
+curl -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"day1check@test.com","password":"Check1234!","name":"Day1 Check"}'
+
+# If this returns a token — Day 1 is complete. ✅
+```
+
+---
+
+## DAY 2 — Voice Memory Infrastructure (5 tasks)
+
+**Day goal:** Qdrant is running, embeddings work, and past posts are
+stored as searchable vectors. The voice memory system is live.
+
+---
+
+### TASK-006 — Qdrant Collection Setup
+
+**Day:** D2 | **Estimate:** 45min | **Depends on:** TASK-003 | **Status:** todo
+
+**WHAT:** Create the `user_voice_memory` Qdrant collection with correct
+vector dimensions and distance metric.
+
+**WHY:** The Writer Agent searches this collection for every post generated.
+Wrong dimensions or distance metric means garbage retrieval — the most
+critical quality issue in the product.
+
+**FILES TO CREATE:**
+```
+backend/app/services/
+└── qdrant_setup.py
+```
+
+**HOW:**
+```python
+# backend/app/services/qdrant_setup.py
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams
+from app.config import settings
+
+def get_qdrant_client() -> QdrantClient:
+    return QdrantClient(
+        url=settings.QDRANT_URL,
+        api_key=settings.QDRANT_API_KEY or None
+    )
+
+def create_collections():
+    """Run once at startup to ensure collections exist."""
+    client = get_qdrant_client()
+
+    existing = [c.name for c in client.get_collections().collections]
+
+    if "user_voice_memory" not in existing:
+        client.create_collection(
+            collection_name="user_voice_memory",
+            vectors_config=VectorParams(
+                size=1536,                  # text-embedding-3-small dimensions
+                distance=Distance.COSINE    # cosine similarity for semantic search
+            )
+        )
+        print("Created collection: user_voice_memory")
+    else:
+        print("Collection already exists: user_voice_memory")
+```
+
+**Add to main.py startup:**
+```python
+# In backend/app/main.py startup event:
+from app.services.qdrant_setup import create_collections
+
+@app.on_event("startup")
+async def startup():
+    create_collections()
+    print(f"AutoPost AI starting — env: {settings.ENV}")
+```
+
+**SMOKE TEST:**
+```bash
+# Test 1: Collection created on startup
+cd backend && source .venv/bin/activate
+uvicorn app.main:app --reload &
+sleep 3
+
+# Test 2: Verify collection exists
+python -c "
+from app.services.qdrant_setup import get_qdrant_client
+client = get_qdrant_client()
+collections = [c.name for c in client.get_collections().collections]
+assert 'user_voice_memory' in collections, 'Collection not found!'
+info = client.get_collection('user_voice_memory')
+assert info.config.params.vectors.size == 1536, 'Wrong dimensions!'
+print('Collection OK — dimensions:', info.config.params.vectors.size)
+print('Distance:', info.config.params.vectors.distance)
+"
+# Expected: Collection OK — dimensions: 1536 / Distance: Cosine
+```
+
+**PHR TRIGGER:** File `08-phr/PHR-006.md`
+
+**NEXT:** Unlocks TASK-007
+
+---
+
+### TASK-007 — Embeddings Service
+
+**Day:** D2 | **Estimate:** 1h | **Depends on:** TASK-006 | **Status:** todo
+
+**WHAT:** An async function that takes text and returns a 1536-dimensional
+vector using OpenAI's `text-embedding-3-small` model.
+
+**WHY:** Every piece of voice memory goes through this function.
+It must be reliable, handle errors gracefully, and never silently return
+a wrong-dimension vector.
+
+**FILES TO CREATE:**
+```
+backend/app/services/
+└── embeddings.py
+```
+
+**HOW:**
+```python
+# backend/app/services/embeddings.py
+from openai import AsyncOpenAI
+from app.config import settings
+
+client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+
+class EmbeddingError(Exception):
+    """Raised when embedding generation fails."""
+    pass
+
+async def embed_text(text: str) -> list[float]:
+    """
+    Embed text using OpenAI text-embedding-3-small.
+    Returns a list of 1536 floats.
+    Raises EmbeddingError on failure.
+    """
+    if not text or not text.strip():
+        raise EmbeddingError("Cannot embed empty text")
+
+    # Truncate to 8000 tokens max (approx 32000 chars)
+    text = text[:32000]
+
+    try:
+        response = await client.embeddings.create(
+            model="text-embedding-3-small",
+            input=text.strip()
+        )
+        vector = response.data[0].embedding
+        if len(vector) != 1536:
+            raise EmbeddingError(f"Unexpected dimensions: {len(vector)}")
+        return vector
+    except Exception as e:
+        raise EmbeddingError(f"Embedding failed: {str(e)}") from e
+
+async def embed_batch(texts: list[str]) -> list[list[float]]:
+    """Embed multiple texts in one API call (more efficient)."""
+    if not texts:
+        return []
+    try:
+        response = await client.embeddings.create(
+            model="text-embedding-3-small",
+            input=[t[:32000] for t in texts]
+        )
+        return [item.embedding for item in response.data]
+    except Exception as e:
+        raise EmbeddingError(f"Batch embedding failed: {str(e)}") from e
+```
+
+**SMOKE TEST:**
+```bash
+cd backend && source .venv/bin/activate
+python -c "
+import asyncio
+from app.services.embeddings import embed_text, EmbeddingError
+
+async def test():
+    # Test 1: Normal text returns 1536 floats
+    vector = await embed_text('I build AI agents that solve real problems')
+    assert len(vector) == 1536, f'Wrong length: {len(vector)}'
+    assert all(isinstance(v, float) for v in vector), 'Not all floats'
+    print('Test 1 PASS: vector length =', len(vector))
+
+    # Test 2: Empty string raises EmbeddingError
+    try:
+        await embed_text('')
+        print('Test 2 FAIL: should have raised EmbeddingError')
+    except EmbeddingError:
+        print('Test 2 PASS: EmbeddingError raised correctly')
+
+asyncio.run(test())
+"
+```
+
+**PHR TRIGGER:** File `08-phr/PHR-007.md`
+Record: API response time, any rate limit issues.
+
+**NEXT:** Unlocks TASK-008
+
+---
+
+### TASK-008 — Qdrant Client Service
+
+**Day:** D2 | **Estimate:** 1.5h | **Depends on:** TASK-006, TASK-007 | **Status:** todo
+
+**WHAT:** A service module with functions to store, search, and delete
+voice memory documents in Qdrant.
+
+**WHY:** The Writer Agent calls `retrieve_voice_memory` for every post.
+This is the most called function in the system. It must be fast, correct,
+and properly filter by `user_id` so no user ever sees another's content.
+
+**FILES TO CREATE:**
+```
+backend/app/services/
+└── qdrant_client.py
+```
+
+**HOW:**
+```python
+# backend/app/services/qdrant_client.py
+import uuid
+from qdrant_client import QdrantClient
+from qdrant_client.models import PointStruct, Filter, FieldCondition, MatchValue
+from app.config import settings
+from app.services.embeddings import embed_text, embed_batch
+
+def get_client() -> QdrantClient:
+    return QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY or None)
+
+COLLECTION = "user_voice_memory"
+
+async def upsert_document(
+    user_id: str,
+    content: str,
+    doc_type: str,            # "past_post" | "persona_note"
+    metadata: dict = None
+) -> str:
+    """Store a document in voice memory. Returns the document ID."""
+    vector = await embed_text(content)
+    doc_id = str(uuid.uuid4())
+
+    client = get_client()
+    client.upsert(
+        collection_name=COLLECTION,
+        points=[PointStruct(
+            id=doc_id,
+            vector=vector,
+            payload={
+                "user_id": user_id,
+                "type": doc_type,
+                "content": content,
+                "metadata": metadata or {}
+            }
+        )]
+    )
+    return doc_id
+
+async def upsert_batch(
+    user_id: str,
+    documents: list[dict]      # each: {content, type, metadata}
+) -> list[str]:
+    """Store multiple documents efficiently."""
+    texts = [d["content"] for d in documents]
+    vectors = await embed_batch(texts)
+
+    points = []
+    ids = []
+    for doc, vector in zip(documents, vectors):
+        doc_id = str(uuid.uuid4())
+        ids.append(doc_id)
+        points.append(PointStruct(
+            id=doc_id,
+            vector=vector,
+            payload={
+                "user_id": user_id,
+                "type": doc.get("type", "past_post"),
+                "content": doc["content"],
+                "metadata": doc.get("metadata", {})
+            }
+        ))
+
+    client = get_client()
+    client.upsert(collection_name=COLLECTION, points=points)
+    return ids
+
+async def retrieve_voice_memory(
+    user_id: str,
+    topic: str,
+    top_k: int = 5
+) -> list[dict]:
+    """Semantic search for voice memory samples relevant to a topic."""
+    query_vector = await embed_text(topic)
+    client = get_client()
+
+    results = client.search(
+        collection_name=COLLECTION,
+        query_vector=query_vector,
+        query_filter=Filter(
+            must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))]
+        ),
+        limit=top_k,
+        with_payload=True
+    )
+
+    return [
+        {
+            "content": r.payload["content"],
+            "type": r.payload["type"],
+            "metadata": r.payload.get("metadata", {}),
+            "relevance_score": r.score
+        }
+        for r in results
+    ]
+
+async def count_user_documents(user_id: str) -> int:
+    """Count how many memory documents a user has."""
+    client = get_client()
+    result = client.count(
+        collection_name=COLLECTION,
+        count_filter=Filter(
+            must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))]
+        )
+    )
+    return result.count
+
+async def delete_user_documents(user_id: str) -> int:
+    """Delete all voice memory for a user. Returns count deleted."""
+    count = await count_user_documents(user_id)
+    if count == 0:
+        return 0
+    client = get_client()
+    client.delete(
+        collection_name=COLLECTION,
+        points_selector=Filter(
+            must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))]
+        )
+    )
+    return count
+```
+
+**SMOKE TEST:**
+```bash
+cd backend && source .venv/bin/activate
+python -c "
+import asyncio
+from app.services.qdrant_client import (
+    upsert_document, retrieve_voice_memory,
+    count_user_documents, delete_user_documents
+)
+
+TEST_USER = 'test-user-001'
+
+async def test():
+    # Test 1: Store a document
+    doc_id = await upsert_document(
+        user_id=TEST_USER,
+        content='I spent 3 days debugging an AI agent. Here is what I learned about context windows and tool calling patterns.',
+        doc_type='past_post',
+        metadata={'pillar': 'Agentic AI', 'tone': 'storytelling'}
+    )
+    assert doc_id, 'No doc_id returned'
+    print('Test 1 PASS: stored doc_id =', doc_id[:8], '...')
+
+    # Test 2: Retrieve by similar topic
+    results = await retrieve_voice_memory(TEST_USER, 'AI agent debugging tips', top_k=3)
+    assert len(results) >= 1, 'No results returned'
+    assert results[0]['content'], 'Empty content'
+    print('Test 2 PASS: found', len(results), 'results, top score:', round(results[0]['relevance_score'], 3))
+
+    # Test 3: Count documents
+    count = await count_user_documents(TEST_USER)
+    assert count >= 1, 'Count is 0'
+    print('Test 3 PASS: count =', count)
+
+    # Test 4: User isolation — different user gets no results
+    other_results = await retrieve_voice_memory('different-user-999', 'AI agents', top_k=5)
+    assert len(other_results) == 0, 'User isolation FAILED — seeing other user data!'
+    print('Test 4 PASS: user isolation confirmed')
+
+    # Cleanup
+    deleted = await delete_user_documents(TEST_USER)
+    print('Cleanup: deleted', deleted, 'documents')
+
+asyncio.run(test())
+"
+```
+
+**PHR TRIGGER:** File `08-phr/PHR-008.md`
+⚠️ **Test 4 (user isolation) is a security-critical test. If it fails, do NOT proceed.**
+
+**NEXT:** Unlocks TASK-009
+
+---
+
+### TASK-009 — Seed Posts Endpoint
+
+**Day:** D2 | **Estimate:** 1.5h | **Depends on:** TASK-005, TASK-008 | **Status:** todo
+
+**WHAT:** `POST /persona/seed-posts` — accepts past LinkedIn posts from the user,
+embeds them, and stores them in Qdrant voice memory.
+
+**WHY:** This is the user's first action after persona setup. These posts
+seed the Writer Agent's voice model. Without them, every generated post
+sounds generic. This endpoint is the gateway to the product's core value.
+
+**FILES TO CREATE/MODIFY:**
+```
+backend/app/
+├── schemas/
+│   └── persona.py              ← create (partial, more in TASK-010)
+└── routes/
+    └── persona.py              ← create (partial, more in TASK-010)
+```
+
+**HOW:**
+```python
+# backend/app/schemas/persona.py (partial)
+from pydantic import BaseModel
+from typing import Optional
+
+class SeedPost(BaseModel):
+    content: str
+    approximate_date: Optional[str] = None
+
+class SeedPostsRequest(BaseModel):
+    posts: list[SeedPost]
+
+class SeedPostsResponse(BaseModel):
+    indexed: int
+    failed: int
+    total_in_memory: int
+```
+
+```python
+# backend/app/routes/persona.py (partial — seed posts only)
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.database import get_db
+from app.models.user import User
+from app.routes.auth import require_auth
+from app.schemas.persona import SeedPostsRequest, SeedPostsResponse
+from app.services.qdrant_client import upsert_batch, count_user_documents
+
+router = APIRouter(prefix="/persona", tags=["persona"])
+
+MIN_POSTS_REQUIRED = 3
+
+@router.post("/seed-posts", response_model=SeedPostsResponse)
+async def seed_posts(
+    body: SeedPostsRequest,
+    current_user: User = Depends(require_auth),
+    db: AsyncSession = Depends(get_db)
+):
+    if len(body.posts) < MIN_POSTS_REQUIRED:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "MIN_POSTS_NOT_MET",
+                "message": f"Please provide at least {MIN_POSTS_REQUIRED} past posts to seed your voice memory."
+            }
+        )
+
+    documents = [
+        {
+            "content": post.content,
+            "type": "past_post",
+            "metadata": {
+                "approximate_date": post.approximate_date,
+                "pillar": "general"
+            }
+        }
+        for post in body.posts
+    ]
+
+    indexed = 0
+    failed = 0
+    try:
+        await upsert_batch(str(current_user.id), documents)
+        indexed = len(documents)
+    except Exception as e:
+        failed = len(documents)
+
+    total = await count_user_documents(str(current_user.id))
+    return SeedPostsResponse(indexed=indexed, failed=failed, total_in_memory=total)
+```
+
+**Add to main.py:**
+```python
+from app.routes.persona import router as persona_router
+app.include_router(persona_router)
+```
+
+**SMOKE TEST:**
+```bash
+cd backend && source .venv/bin/activate
+uvicorn app.main:app --reload &
+sleep 2
+
+# Get a token first
+TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@autopost.ai","password":"Test1234!"}' | jq -r .token)
+
+# Test 1: Seed 5 posts
+curl -s -X POST http://localhost:8000/persona/seed-posts \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "posts": [
+      {"content": "I spent 3 days debugging my first AI agent. The lesson? Context windows matter more than model size. Here is what I learned building production agents."},
+      {"content": "Most people build agents wrong. They start with the tool. I start with the output schema. Define what you want to receive, then build backwards."},
+      {"content": "RAG is not magic. It is retrieval + generation. The retrieval part is 80% of the quality. I switched from naive chunking to semantic chunking and saw 3x better results."},
+      {"content": "Qdrant vs Weaviate vs Pinecone. I tested all three. Here is my honest take after 6 months of production use."},
+      {"content": "The hardest part of building Agentic AI is not the code. It is knowing when the agent should stop and ask a human. I call this the confidence threshold problem."}
+    ]
+  }' | jq .
+# Expected: {"indexed":5,"failed":0,"total_in_memory":5}
+
+# Test 2: Too few posts is rejected
+curl -s -X POST http://localhost:8000/persona/seed-posts \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"posts":[{"content":"Just one post"}]}' | jq .detail.code
+# Expected: "MIN_POSTS_NOT_MET"
+
+# Test 3: Unauthenticated request is rejected
+curl -s -X POST http://localhost:8000/persona/seed-posts \
+  -H "Content-Type: application/json" \
+  -d '{"posts":[]}' | jq .
+# Expected: 403 or 401 error
+
+pkill -f uvicorn
+```
+
+**PHR TRIGGER:** File `08-phr/PHR-009.md`
+Record: indexing speed (how long did 5 posts take?), verify posts appeared in Qdrant.
+
+**NEXT:** Unlocks TASK-010 (Day 3) and partially unlocks TASK-011
+
+---
+
+## DAY 2 INTEGRATION CHECKPOINT
+After TASK-009: Verify the voice memory pipeline end-to-end.
+```bash
+# Full Day 2 chain:
+# Register → Login → Seed Posts → Search Memory
+TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@autopost.ai","password":"Test1234!"}' | jq -r .token)
+
+curl -s -X POST http://localhost:8000/persona/seed-posts \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"posts":[{"content":"Building AI agents is my passion. Here is what I learned."},{"content":"RAG pipelines need semantic chunking not naive splitting."},{"content":"Qdrant is the best vector database for production AI agents."}]}'
+
+# If this returns indexed:3 — Day 2 is complete. ✅
+```
+
+---
+
+## DAY 3 — Persona System (4 tasks)
+
+**Day goal:** Users can create and update their persona, which gets saved to
+PostgreSQL AND embedded into Qdrant. The full persona setup flow works end-to-end.
+(Day 3 has 4 tasks instead of 5 — Persona is complex enough to deserve breathing room.)
+
+---
+
+### TASK-010 — Persona CRUD Endpoints
+
+**Day:** D3 | **Estimate:** 2h | **Depends on:** TASK-005, TASK-009 | **Status:** todo
+
+**WHAT:** `GET /persona` and `POST /persona` — create/retrieve the user's persona,
+stored in PostgreSQL, matching the PersonaObject contract exactly.
+
+**FILES TO MODIFY/CREATE:**
+```
+backend/app/
+├── schemas/persona.py    ← expand
+└── routes/persona.py     ← expand
+```
+
+**HOW:**
+```python
+# Add to backend/app/schemas/persona.py
+from pydantic import BaseModel, field_validator
+from typing import Optional, List
+from enum import Enum
+
+class ToneEnum(str, Enum):
+    professional = "professional"
+    conversational = "conversational"
+    bold = "bold"
+    storytelling = "storytelling"
+
+class ContentGoalEnum(str, Enum):
+    grow_followers = "grow_followers"
+    get_clients = "get_clients"
+    build_authority = "build_authority"
+    network = "network"
+
+class FrequencyEnum(str, Enum):
+    daily = "daily"
+    three_x_week = "3x_week"
+    two_x_week = "2x_week"
+    weekly = "weekly"
+
+class PersonaRequest(BaseModel):
+    name: str
+    headline: str
+    niche: str
+    content_pillars: List[str]
+    tone: ToneEnum
+    target_audience: str
+    content_goal: ContentGoalEnum
+    posting_frequency: FrequencyEnum
+    avoid_topics: Optional[List[str]] = []
+    unique_differentiator: str
+
+    @field_validator("content_pillars")
+    @classmethod
+    def max_three_pillars(cls, v):
+        if len(v) > 3:
+            raise ValueError("Maximum 3 content pillars allowed")
+        if len(v) == 0:
+            raise ValueError("At least 1 content pillar required")
+        return v
+
+class PersonaResponse(BaseModel):
+    id: str
+    user_id: str
+    name: str
+    headline: str
+    niche: str
+    content_pillars: List[str]
+    tone: str
+    target_audience: str
+    content_goal: str
+    posting_frequency: str
+    avoid_topics: List[str]
+    unique_differentiator: str
+    updated_at: str
+
+    class Config:
+        from_attributes = True
+```
+
+```python
+# Add to backend/app/routes/persona.py
+from sqlalchemy import select
+from app.models.persona import Persona
+from app.schemas.persona import PersonaRequest, PersonaResponse
+
+@router.get("", response_model=PersonaResponse)
+async def get_persona(
+    current_user: User = Depends(require_auth),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(select(Persona).where(Persona.user_id == current_user.id))
+    persona = result.scalar_one_or_none()
+    if not persona:
+        raise HTTPException(status_code=404, detail={"code": "PERSONA_NOT_FOUND", "message": "Persona not set up yet"})
+    return persona
+
+@router.post("", response_model=PersonaResponse, status_code=201)
+async def create_or_update_persona(
+    body: PersonaRequest,
+    current_user: User = Depends(require_auth),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(select(Persona).where(Persona.user_id == current_user.id))
+    persona = result.scalar_one_or_none()
+
+    if persona:
+        for field, value in body.model_dump().items():
+            setattr(persona, field, value)
+    else:
+        persona = Persona(user_id=current_user.id, **body.model_dump())
+        db.add(persona)
+
+    await db.commit()
+    await db.refresh(persona)
+    return persona
+```
+
+**SMOKE TEST:**
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@autopost.ai","password":"Test1234!"}' | jq -r .token)
+
+# Test 1: Create persona
+curl -s -X POST http://localhost:8000/persona \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{
+    "name":"Muhammad Sufyan","headline":"AI Engineer | Agentic AI Developer",
+    "niche":"Agentic AI","content_pillars":["Agentic AI","RAG","AI Products"],
+    "tone":"storytelling","target_audience":"AI developers and startup founders",
+    "content_goal":"build_authority","posting_frequency":"3x_week",
+    "avoid_topics":["crypto","politics"],
+    "unique_differentiator":"I build AI agents in production, not just demos"
+  }' | jq .niche
+# Expected: "Agentic AI"
+
+# Test 2: Retrieve persona
+curl -s http://localhost:8000/persona \
+  -H "Authorization: Bearer $TOKEN" | jq .content_pillars
+# Expected: ["Agentic AI","RAG","AI Products"]
+
+# Test 3: More than 3 pillars is rejected
+curl -s -X POST http://localhost:8000/persona \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name":"x","headline":"x","niche":"x","content_pillars":["a","b","c","d"],"tone":"bold","target_audience":"x","content_goal":"network","posting_frequency":"daily","unique_differentiator":"x"}' | jq .detail
+# Expected: validation error about max 3 pillars
+```
+
+**PHR TRIGGER:** File `08-phr/PHR-010.md`
+
+**NEXT:** Unlocks TASK-011
+
+---
+
+### TASK-011 — Persona Notes Auto-Embedding
+
+**Day:** D3 | **Estimate:** 1h | **Depends on:** TASK-008, TASK-010 | **Status:** todo
+
+**WHAT:** When a persona is saved, automatically embed the user's niche,
+differentiator, and pillars into Qdrant as `persona_note` documents.
+
+**WHY:** The Writer Agent retrieves voice memory by semantic search.
+The persona notes ensure that even if a user has few past posts, the agent
+still has their positioning and expertise to draw from.
+
+**FILES TO MODIFY:**
+```
+backend/app/routes/persona.py    ← add embedding call after save
+```
+
+**HOW:**
+```python
+# In the create_or_update_persona route, after db.commit():
+from app.services.qdrant_client import upsert_document, delete_user_documents
+
+# After saving persona, embed it:
+# First delete old persona notes to avoid duplicates
+# (use a targeted delete by type — simplified version below)
+
+persona_note_text = f"""
+Name: {persona.name}
+Headline: {persona.headline}
+Niche: {persona.niche}
+Content pillars: {', '.join(persona.content_pillars)}
+Target audience: {persona.target_audience}
+Unique differentiator: {persona.unique_differentiator}
+Content goal: {persona.content_goal}
+Tone: {persona.tone}
+"""
+
+await upsert_document(
+    user_id=str(current_user.id),
+    content=persona_note_text.strip(),
+    doc_type="persona_note",
+    metadata={
+        "niche": persona.niche,
+        "pillars": persona.content_pillars,
+        "tone": persona.tone
+    }
+)
+```
+
+**SMOKE TEST:**
+```bash
+cd backend && source .venv/bin/activate
+python -c "
+import asyncio
+from app.services.qdrant_client import retrieve_voice_memory, count_user_documents
+
+async def test():
+    # After persona is saved, this should return the persona note
+    results = await retrieve_voice_memory(
+        user_id='[YOUR_TEST_USER_UUID]',
+        topic='Agentic AI developer building RAG pipelines',
+        top_k=3
+    )
+    has_persona_note = any(r['type'] == 'persona_note' for r in results)
+    print('Has persona note:', has_persona_note)
+    if results:
+        print('Top result type:', results[0]['type'])
+        print('Top result score:', results[0]['relevance_score'])
+
+asyncio.run(test())
+"
+```
+
+**PHR TRIGGER:** File `08-phr/PHR-011.md`
+
+**NEXT:** Unlocks TASK-012 (Day 4)
+
+---
+
+### TASK-012 — Generation Rate Limiter
+
+**Day:** D3 | **Estimate:** 1h | **Depends on:** TASK-005 | **Status:** todo
+
+**WHAT:** A Redis-based rate limiter that enforces the 10 generations/day
+per user limit (Constitution Article 6).
+
+**WHY:** Without this, a single user or a bug in the frontend could
+trigger hundreds of OpenAI API calls in minutes. At ~$0.05 per generation,
+this is a real financial risk.
+
+**FILES TO CREATE:**
+```
+backend/app/services/
+└── rate_limiter.py
+```
+
+**HOW:**
+```python
+# backend/app/services/rate_limiter.py
+import redis.asyncio as aioredis
+from datetime import datetime
+from app.config import settings
+
+MAX_DAILY_GENERATIONS = 10
+
+async def get_redis():
+    return await aioredis.from_url(settings.REDIS_URL)
+
+async def check_generation_limit(user_id: str) -> tuple[bool, int]:
+    """
+    Returns (allowed: bool, remaining: int).
+    Uses Redis INCR + EXPIRE with daily key.
+    """
+    r = await get_redis()
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    key = f"gen_limit:{user_id}:{today}"
+
+    count = await r.incr(key)
+    if count == 1:
+        # First generation today — set 24h expiry
+        await r.expire(key, 86400)
+
+    await r.aclose()
+
+    if count > MAX_DAILY_GENERATIONS:
+        return False, 0
+
+    return True, MAX_DAILY_GENERATIONS - count
+
+async def get_generation_count(user_id: str) -> int:
+    """Get current generation count for today."""
+    r = await get_redis()
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    key = f"gen_limit:{user_id}:{today}"
+    count = await r.get(key)
+    await r.aclose()
+    return int(count) if count else 0
+```
+
+**SMOKE TEST:**
+```bash
+cd backend && source .venv/bin/activate
+python -c "
+import asyncio
+from app.services.rate_limiter import check_generation_limit, get_generation_count
+
+TEST_USER = 'rate-limit-test-999'
+
+async def test():
+    # Test 1: First 10 calls allowed
+    for i in range(10):
+        allowed, remaining = await check_generation_limit(TEST_USER)
+        assert allowed == True, f'Call {i+1} was blocked!'
+    print('Test 1 PASS: first 10 calls allowed')
+
+    # Test 2: 11th call is blocked
+    allowed, remaining = await check_generation_limit(TEST_USER)
+    assert allowed == False, '11th call should be blocked!'
+    assert remaining == 0
+    print('Test 2 PASS: 11th call blocked correctly')
+
+asyncio.run(test())
+"
+```
+
+**PHR TRIGGER:** File `08-phr/PHR-012.md`
+
+**NEXT:** Unlocks TASK-013
+
+---
+
+### TASK-013 — Research Agent
+
+**Day:** D3 | **Estimate:** 2.5h | **Depends on:** TASK-010, TASK-011 | **Status:** todo
+
+**WHAT:** The Research Agent — an OpenAI tool-calling agent that finds
+the best LinkedIn topic to post about right now, matching Contract A1 exactly.
+
+**WHY:** This is the first agent in the pipeline. Its output feeds directly
+into the Writer Agent. A bad research output produces a bad post regardless
+of how good the writer prompt is. Quality starts here.
+
+**FILES TO CREATE:**
+```
+backend/app/
+├── constants/
+│   └── prompts.py          ← create
+└── agents/
+    └── research_agent.py   ← create
+```
+
+**HOW:**
+```python
+# backend/app/constants/prompts.py
+RESEARCH_AGENT_SYSTEM_PROMPT = """
+You are a LinkedIn content strategist. Your only job is to identify
+the single best topic for a LinkedIn post right now.
+
+You will be given:
+- The user's niche and content pillars
+- Their recent post topics (to avoid repetition)
+- Topics they want to avoid
+- Their target audience
+
+Your decision criteria (in order of importance):
+1. Trend score: Is this topic gaining attention RIGHT NOW?
+2. Competition level: Are few high-quality creators posting about this?
+3. Pillar alignment: Does it fit one of the user's content pillars?
+4. Audience relevance: Will the target audience find this valuable?
+5. Recency: Has the user NOT posted about this in the last 14 days?
+
+Output ONLY valid JSON matching this exact schema. No preamble. No explanation.
+{
+  "status": "success",
+  "recommended_topic": "string — specific, not vague",
+  "angle": "string — unique perspective or contrarian take",
+  "reasoning": "string — 2 sentences max on why this topic now",
+  "trend_score": 0.0 to 10.0,
+  "sources": ["url or source name"],
+  "content_pillar": "string — must match one of user's pillars exactly",
+  "estimated_competition": "low | medium | high"
+}
+"""
+
+WRITER_AGENT_SYSTEM_PROMPT = """
+You are a ghostwriter. Your only job is to write a LinkedIn post that
+sounds exactly like the specific person described below.
+
+CRITICAL: Do NOT write in generic AI style. Do NOT use corporate language.
+Write exactly how this person writes — their rhythm, vocabulary, sentence length.
+
+Voice samples (study these carefully — this is how they write):
+{voice_samples}
+
+Their profile:
+- Tone: {tone}
+- Content goal: {content_goal}
+- What makes them unique: {unique_differentiator}
+
+LinkedIn 2026 Depth Score Rules (MUST follow):
+- First line (hook): MAXIMUM 49 characters
+- Total length: 150-300 words
+- BANNED phrases: {banned_phrases}
+- End with: a genuine question OR a sharp insight (NOT a CTA)
+- No promotional language in first 3 lines
+- Maximum 3 emojis in the entire post
+
+Topic: {topic}
+Angle: {angle}
+
+Output ONLY valid JSON. No preamble.
+{
+  "status": "success",
+  "post_content": "full post text",
+  "hook": "the first line only",
+  "word_count": 0,
+  "estimated_read_time_seconds": 0,
+  "content_pillar": "string"
+}
+"""
+
+REVIEWER_AGENT_SYSTEM_PROMPT = """
+You are a LinkedIn content quality reviewer. Score this post on 5 dimensions.
+
+Voice samples from this user (for comparison):
+{voice_samples}
+
+Score each dimension 0-20 (total max 100):
+1. voice_match: Does it sound like the user's voice samples? Not generic AI?
+2. hook_quality: Under 49 chars? Stops scroll without bait?
+3. depth_score_compliance: No banned phrases? Genuine ending?
+4. clarity: Clear idea, easy to read, good structure?
+5. authenticity: No hallucinated statistics? Specific not vague?
+
+Approve if total >= 70. Reject with SPECIFIC actionable feedback if < 70.
+Hard fail if retry_count >= 2 (accept whatever draft exists).
+
+Output ONLY valid JSON. No preamble.
+
+If approving:
+{"status":"approved","quality_score":0,"scores":{"voice_match":0,"hook_quality":0,"depth_score_compliance":0,"clarity":0,"authenticity":0},"notes":"string"}
+
+If rejecting:
+{"status":"rejected","quality_score":0,"rejection_reasons":["string"],"specific_feedback":"string","retry_count":0}
+
+If hard failing:
+{"status":"hard_failed","quality_score":0,"reason":"Max retries reached","last_draft":"string"}
+"""
+```
+
+```python
+# backend/app/agents/research_agent.py
+import json
+from openai import AsyncOpenAI
+from app.config import settings
+from app.constants.prompts import RESEARCH_AGENT_SYSTEM_PROMPT
+from app.services.qdrant_client import retrieve_voice_memory
+
+client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+
+# Tool definitions
+RESEARCH_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": "Search the web for trending topics and recent content",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query"}
+                },
+                "required": ["query"]
+            }
+        }
+    }
+]
+
+async def mock_web_search(query: str) -> str:
+    """Placeholder — replace with real search API (Serper/Tavily) in production."""
+    return f"Search results for '{query}': AI agents trending strongly in 2026, focus on production deployment, testing frameworks, and multi-agent coordination patterns."
+
+async def run_research_agent(
+    niche: str,
+    content_pillars: list[str],
+    target_audience: str,
+    avoid_topics: list[str],
+    recent_post_topics: list[str]
+) -> dict:
+    """Run Research Agent. Returns ResearchAgentOutput matching Contract A1."""
+
+    user_context = f"""
+Niche: {niche}
+Content pillars: {', '.join(content_pillars)}
+Target audience: {target_audience}
+Avoid these topics: {', '.join(avoid_topics) if avoid_topics else 'none'}
+Recent posts (avoid repeating): {', '.join(recent_post_topics) if recent_post_topics else 'none in last 14 days'}
+"""
+
+    messages = [
+        {"role": "system", "content": RESEARCH_AGENT_SYSTEM_PROMPT},
+        {"role": "user", "content": f"Find the best topic for this creator:\n{user_context}"}
+    ]
+
+    # Tool calling loop (max 5 iterations)
+    for _ in range(5):
+        response = await client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            tools=RESEARCH_TOOLS,
+            tool_choice="auto"
+        )
+
+        message = response.choices[0].message
+
+        if message.tool_calls:
+            messages.append(message)
+            for tool_call in message.tool_calls:
+                if tool_call.function.name == "web_search":
+                    args = json.loads(tool_call.function.arguments)
+                    result = await mock_web_search(args["query"])
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": result
+                    })
+        else:
+            # Final response
+            try:
+                output = json.loads(message.content)
+                # Validate content_pillar is in user's pillars
+                if output.get("content_pillar") not in content_pillars:
+                    output["content_pillar"] = content_pillars[0]
+                return output
+            except json.JSONDecodeError:
+                return {
+                    "status": "failed",
+                    "reason": "Agent returned invalid JSON",
+                    "retry_suggested": True
+                }
+
+    return {"status": "failed", "reason": "Max tool call iterations reached", "retry_suggested": True}
+```
+
+**SMOKE TEST:**
+```bash
+cd backend && source .venv/bin/activate
+python -c "
+import asyncio
+from app.agents.research_agent import run_research_agent
+
+async def test():
+    result = await run_research_agent(
+        niche='Agentic AI',
+        content_pillars=['Agentic AI', 'RAG', 'AI Products'],
+        target_audience='AI developers and startup founders',
+        avoid_topics=['crypto', 'politics'],
+        recent_post_topics=['LangChain tutorial', 'OpenAI function calling']
+    )
+    print('Status:', result.get('status'))
+    print('Topic:', result.get('recommended_topic'))
+    print('Angle:', result.get('angle'))
+    print('Pillar:', result.get('content_pillar'))
+    print('Trend score:', result.get('trend_score'))
+    assert result.get('status') == 'success', f'Agent failed: {result}'
+    assert result.get('content_pillar') in ['Agentic AI', 'RAG', 'AI Products']
+    print('SMOKE TEST PASS')
+
+asyncio.run(test())
+"
+```
+
+**PHR TRIGGER:** File `08-phr/PHR-013.md`
+Record: agent response time, topic quality (your honest assessment), tool calls used.
+
+---
+
+## DAY 3 INTEGRATION CHECKPOINT
+```bash
+# Persona setup + seed posts + persona embedding — full flow
+TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@autopost.ai","password":"Test1234!"}' | jq -r .token)
+
+# Create persona
+curl -s -X POST http://localhost:8000/persona \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name":"Sufyan","headline":"AI Engineer","niche":"Agentic AI","content_pillars":["Agentic AI","RAG","AI Products"],"tone":"storytelling","target_audience":"AI devs","content_goal":"build_authority","posting_frequency":"3x_week","unique_differentiator":"Production AI agent builder"}'
+
+# Expected: persona returned with all fields. Day 3 checkpoint PASS ✅
+```
+
+---
+
+> **WEEKS 2 & 3 TASKS follow the same deep format.**
+> Each task has: WHAT, WHY, FILES, HOW (with full code), SMOKE TEST, PHR TRIGGER, NEXT.
+> Days 4–21 continue with the same structure — max 5 tasks per day.
+> See PLAN.md for the remaining day-by-day schedule.
+> Request "Generate Week 2 Tasks" or "Generate Day 4 Tasks" to get the next batch.

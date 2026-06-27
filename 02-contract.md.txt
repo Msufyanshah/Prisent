@@ -1,0 +1,484 @@
+# CONTRACTS — AutoPost AI
+
+> Version: 1.0 | Status: Active | Last updated: June 2026
+> This document defines every interface in AutoPost AI.
+> If an agent, API, or service makes a promise — it is written here.
+> Breaking a contract without updating this document is a bug, not a feature.
+
+---
+
+## Part A — Agent Contracts
+
+Every agent in AutoPost AI has a fixed input and output contract.
+Agents communicate only through these schemas — never free text.
+
+---
+
+### A1 — Research Agent
+
+**Job:** Find the best topic to post about right now, given the user's persona and current trends.
+
+**Input:**
+```json
+{
+  "user_id": "uuid",
+  "persona": {
+    "niche": "string",
+    "content_pillars": ["string"],
+    "target_audience": "string",
+    "avoid_topics": ["string"]
+  },
+  "recent_post_topics": ["string"],
+  "max_topics_to_avoid": 5
+}
+```
+
+**Output (success):**
+```json
+{
+  "status": "success",
+  "recommended_topic": "string",
+  "angle": "string",
+  "reasoning": "string",
+  "trend_score": 0.0,
+  "sources": ["string"],
+  "content_pillar": "string",
+  "estimated_competition": "low | medium | high"
+}
+```
+
+**Output (failure):**
+```json
+{
+  "status": "failed",
+  "reason": "string",
+  "retry_suggested": true
+}
+```
+
+**Tools available to this agent:**
+- `web_search(query: str) -> str`
+- `get_linkedin_trends() -> list[str]`
+- `get_user_context(user_id: str) -> dict`
+- `check_recent_posts(user_id: str, days: int) -> list[str]`
+
+**Hard limits:**
+- Max 5 web searches per run
+- Must always output `content_pillar` matching one of the user's defined pillars
+- Must never recommend a topic in `avoid_topics`
+
+---
+
+### A2 — Writer Agent
+
+**Job:** Write a LinkedIn post in the user's authentic voice, using research output and voice memory.
+
+**Input:**
+```json
+{
+  "user_id": "uuid",
+  "research": {
+    "recommended_topic": "string",
+    "angle": "string",
+    "reasoning": "string",
+    "sources": ["string"],
+    "content_pillar": "string"
+  },
+  "persona": {
+    "tone": "professional | conversational | bold | storytelling",
+    "content_goal": "grow_followers | get_clients | build_authority | network",
+    "unique_differentiator": "string"
+  },
+  "voice_memory_samples": [
+    {
+      "content": "string",
+      "pillar": "string",
+      "performance_score": 0
+    }
+  ],
+  "depth_score_rules": "object"
+}
+```
+
+**Output (success):**
+```json
+{
+  "status": "success",
+  "post_content": "string",
+  "hook": "string",
+  "word_count": 0,
+  "estimated_read_time_seconds": 0,
+  "content_pillar": "string"
+}
+```
+
+**Output (failure):**
+```json
+{
+  "status": "failed",
+  "reason": "string",
+  "retry_suggested": true
+}
+```
+
+**Tools available to this agent:**
+- `retrieve_voice_memory(user_id: str, topic: str, top_k: int) -> list[dict]`
+- `get_depth_score_rules() -> dict`
+
+**Hard limits:**
+- Post must be 150–300 words
+- Hook (first line) must be under 49 characters
+- Must not contain: "Comment YES", "Drop a like", "Share if you agree", "Thoughts?"
+- Must end with a genuine question or insight — not a call to action
+- Max 2 retries if Reviewer rejects
+
+---
+
+### A3 — Reviewer Agent
+
+**Job:** Review a drafted post for quality, authenticity, and compliance with depth score rules.
+Approve it or send it back to Writer Agent with specific feedback.
+
+**Input:**
+```json
+{
+  "user_id": "uuid",
+  "post_draft": {
+    "post_content": "string",
+    "hook": "string",
+    "word_count": 0,
+    "content_pillar": "string"
+  },
+  "persona": {
+    "tone": "string",
+    "content_pillars": ["string"]
+  },
+  "voice_memory_samples": ["string"],
+  "retry_count": 0
+}
+```
+
+**Output (approved):**
+```json
+{
+  "status": "approved",
+  "quality_score": 0,
+  "scores": {
+    "voice_match": 0,
+    "hook_quality": 0,
+    "depth_score_compliance": 0,
+    "clarity": 0,
+    "authenticity": 0
+  },
+  "notes": "string"
+}
+```
+
+**Output (rejected — rewrite needed):**
+```json
+{
+  "status": "rejected",
+  "quality_score": 0,
+  "rejection_reasons": ["string"],
+  "specific_feedback": "string",
+  "retry_count": 0
+}
+```
+
+**Output (hard fail — max retries reached):**
+```json
+{
+  "status": "hard_failed",
+  "quality_score": 0,
+  "reason": "Max retries reached. Human review required.",
+  "last_draft": "string"
+}
+```
+
+**Scoring rubric (each 0–20, total 0–100):**
+| Dimension | Description |
+|---|---|
+| Voice match | Does it sound like the user based on memory samples? |
+| Hook quality | Under 49 chars? Stops the scroll? Not bait? |
+| Depth score compliance | No bait phrases, genuine question, dwell-worthy |
+| Clarity | Clear idea, well structured, easy to read |
+| Authenticity | No hallucinated stats, no generic AI phrasing |
+
+**Approval threshold:** Score ≥ 70 required to approve.
+
+---
+
+## Part B — API Contracts
+
+All endpoints follow REST conventions. All responses use this envelope:
+
+```json
+{
+  "success": true,
+  "data": {},
+  "error": null,
+  "timestamp": "ISO8601"
+}
+```
+
+Error response:
+```json
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human-readable message"
+  },
+  "timestamp": "ISO8601"
+}
+```
+
+---
+
+### B1 — Auth Endpoints
+
+**POST /auth/register**
+```
+Request:  { email: string, password: string, name: string }
+Response: { user_id: uuid, token: jwt }
+Errors:   EMAIL_TAKEN, INVALID_EMAIL, WEAK_PASSWORD
+```
+
+**POST /auth/login**
+```
+Request:  { email: string, password: string }
+Response: { user_id: uuid, token: jwt }
+Errors:   INVALID_CREDENTIALS, USER_NOT_FOUND
+```
+
+**GET /auth/linkedin/connect**
+```
+Request:  Bearer token in header
+Response: { redirect_url: string }
+Action:   Redirects user to LinkedIn OAuth consent screen
+```
+
+**GET /auth/linkedin/callback**
+```
+Request:  ?code=string&state=string (from LinkedIn)
+Response: { connected: true, linkedin_name: string }
+Action:   Exchanges code for token, encrypts, stores in users table
+Errors:   OAUTH_FAILED, INVALID_STATE
+```
+
+---
+
+### B2 — Persona Endpoints
+
+**GET /persona**
+```
+Request:  Bearer token
+Response: { persona: PersonaObject } | null if not set up
+```
+
+**POST /persona**
+```
+Request:  PersonaObject (see Data Contracts)
+Response: { persona_id: uuid, indexed: true }
+Action:   Saves to PostgreSQL + embeds persona notes into Qdrant
+Errors:   VALIDATION_ERROR, QDRANT_FAILED
+```
+
+**POST /persona/seed-posts**
+```
+Request:  { posts: [{ content: string, approximate_date: string? }] }
+Response: { indexed: number, failed: number }
+Action:   Embeds each post into Qdrant voice memory collection
+Errors:   MIN_POSTS_NOT_MET (minimum 3 posts required)
+```
+
+---
+
+### B3 — Generation Endpoints
+
+**POST /generate**
+```
+Request:  { trigger: "manual" | "scheduled" }
+Response: { job_id: uuid, status: "pending" }
+Action:   Starts async Celery job running agent pipeline
+Errors:   PERSONA_NOT_FOUND, VOICE_MEMORY_EMPTY, RATE_LIMIT_EXCEEDED
+```
+
+**GET /generate/{job_id}**
+```
+Request:  Bearer token
+Response: {
+  job_id: uuid,
+  status: "pending" | "researching" | "writing" | "reviewing" | "done" | "failed",
+  progress_message: string,
+  post_id: uuid | null   (set when done)
+  error: string | null   (set when failed)
+}
+```
+
+---
+
+### B4 — Posts Endpoints
+
+**GET /posts**
+```
+Request:  ?status=draft|scheduled|published|failed&page=1&limit=20
+Response: { posts: [PostObject], total: number, page: number }
+```
+
+**GET /posts/{id}**
+```
+Response: PostObject
+Errors:   POST_NOT_FOUND, FORBIDDEN
+```
+
+**PATCH /posts/{id}**
+```
+Request:  { content?: string, scheduled_at?: ISO8601 }
+Response: PostObject (updated)
+Errors:   POST_NOT_FOUND, CANNOT_EDIT_PUBLISHED
+```
+
+**POST /posts/{id}/approve**
+```
+Request:  { scheduled_at: ISO8601 }
+Response: { status: "scheduled", scheduled_at: ISO8601 }
+Errors:   QUALITY_SCORE_TOO_LOW (< 70), LINKEDIN_NOT_CONNECTED
+```
+
+**POST /posts/{id}/publish-now**
+```
+Response: { status: "published", linkedin_post_id: string }
+Errors:   LINKEDIN_TOKEN_EXPIRED, LINKEDIN_API_ERROR
+```
+
+---
+
+### B5 — Analytics Endpoints
+
+**GET /analytics/summary**
+```
+Response: {
+  total_posts_published: number,
+  avg_impressions: number,
+  avg_reactions: number,
+  best_pillar: string,
+  best_posting_time: string
+}
+```
+
+**GET /analytics/posts**
+```
+Request:  ?from=ISO8601&to=ISO8601
+Response: {
+  posts: [{
+    post_id: uuid,
+    content_preview: string,
+    pillar: string,
+    impressions: number,
+    reactions: number,
+    comments: number,
+    published_at: ISO8601
+  }]
+}
+```
+
+---
+
+## Part C — Data Contracts
+
+Canonical shapes for all core objects. These are the single source of truth.
+
+### PersonaObject
+```typescript
+{
+  id: uuid
+  user_id: uuid
+  name: string
+  headline: string
+  niche: string                               // e.g. "Agentic AI"
+  content_pillars: string[]                   // max 3
+  tone: "professional" | "conversational" | "bold" | "storytelling"
+  target_audience: string                     // e.g. "AI startup founders"
+  content_goal: "grow_followers" | "get_clients" | "build_authority" | "network"
+  posting_frequency: "daily" | "3x_week" | "2x_week" | "weekly"
+  avoid_topics: string[]
+  unique_differentiator: string
+  updated_at: ISO8601
+}
+```
+
+### PostObject
+```typescript
+{
+  id: uuid
+  user_id: uuid
+  content: string
+  hook: string                                // first line of post
+  topic: string
+  content_pillar: string
+  quality_score: number                       // 0–100
+  status: "draft" | "scheduled" | "published" | "failed"
+  scheduled_at: ISO8601 | null
+  published_at: ISO8601 | null
+  linkedin_post_id: string | null
+  impressions: number
+  reactions: number
+  comments: number
+  reposts: number
+  agent_job_id: uuid
+  created_at: ISO8601
+}
+```
+
+### AgentJobObject
+```typescript
+{
+  id: uuid
+  user_id: uuid
+  status: "pending" | "researching" | "writing" | "reviewing" | "done" | "failed"
+  progress_message: string
+  research_output: ResearchAgentOutput | null
+  draft_content: string | null
+  review_notes: string | null
+  quality_score: number | null
+  retries: number
+  error: string | null
+  created_at: ISO8601
+  completed_at: ISO8601 | null
+}
+```
+
+### VoiceMemoryDocument (Qdrant)
+```typescript
+{
+  id: uuid
+  user_id: uuid
+  type: "past_post" | "persona_note"
+  content: string
+  metadata: {
+    pillar: string
+    tone: string
+    word_count: number
+    performance: {
+      impressions: number
+      reactions: number
+      comments: number
+    } | null
+    created_at: ISO8601
+  }
+}
+```
+
+---
+
+## Contract Change Protocol
+
+If you need to change any contract in this document:
+
+1. Update this file — increment the version at the top
+2. Update the corresponding Spec section if it describes this feature
+3. Update any agent system prompts that depend on the old schema
+4. Add an ADR in `07-decisions/DECISIONS.md` explaining why
+5. Run any existing tests that validate the old contract shape

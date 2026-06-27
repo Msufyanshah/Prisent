@@ -1,0 +1,22 @@
+# BACKLOG — AutoPost AI
+
+> Ideas that came up during the build but are NOT in MVP scope.
+> Rule: Do not touch anything here until Day 22.
+> Adding to this list is encouraged. Starting any item before ship is not.
+
+---
+
+| # | Idea | Why deferred | Added on |
+|---|---|---|---|
+| B-001 | Carousel / PDF generation | Requires image pipeline — separate problem | June 2026 |
+| B-002 | Creator Twin (deep identity model) | Long-term ML feature, post product-market fit | June 2026 |
+| B-003 | X (Twitter) thread generation | Focus LinkedIn first, prove the model | June 2026 |
+| B-004 | Newsletter digest agent | Different distribution channel — post-MVP | June 2026 |
+| B-005 | Competitor topic monitoring | Nice-to-have intelligence layer | June 2026 |
+| B-006 | Comment auto-reply agent | Post-publish engagement layer | June 2026 |
+| B-007 | Billing and subscriptions | After product-market fit confirmed | June 2026 |
+| B-008 | Team and agency accounts | After single-user success | June 2026 |
+| B-009 | Neo4j graph layer for topic relationships | Intelligence layer upgrade | June 2026 |
+| B-010 | Auto-publish toggle (skip approval) | After users trust the output | June 2026 |
+| B-011 | Best time to post predictor | Needs significant data accumulation | June 2026 |
+| B-012 | LinkedIn DM automation | Different risk profile — evaluate separately | June 2026 |

@@ -1,0 +1,326 @@
+# SPECIFICATION — AutoPost AI
+
+> Version: 1.0 | Status: Active | Last updated: June 2026
+> This document describes what AutoPost AI does.
+> For WHY it does it → Constitution. For HOW interfaces work → Contracts.
+
+---
+
+## 1. System Overview
+
+AutoPost AI is an agentic LinkedIn post generator with five functional areas:
+
+```
+Onboarding → Generation → Review → Publishing → Analytics
+```
+
+Users onboard once, then the system works autonomously: researching trends,
+writing in their voice, and publishing after human approval.
+
+---
+
+## 2. User Flows
+
+### 2.1 First-Time User Flow
+```
+Register
+  → Complete Persona Setup (required, blocks generation)
+  → Upload Past Posts (min 3, seeds voice memory)
+  → Connect LinkedIn (required for publishing)
+  → Dashboard (ready to generate)
+```
+
+### 2.2 Returning User — Manual Generation
+```
+Dashboard → Click "Generate Now"
+  → System starts Research Agent (async)
+  → User sees live status: Researching → Writing → Reviewing
+  → Post appears in dashboard as Draft
+  → User reviews, optionally edits
+  → User clicks Approve + sets schedule
+  → Post auto-publishes at scheduled time
+  → Analytics updated 24h after publish
+```
+
+### 2.3 Returning User — Scheduled Generation
+```
+System checks posting schedule (Celery beat, every 5 mins)
+  → If post due in next 24h and no draft exists:
+      → Auto-trigger generation pipeline
+      → Notify user: "Your post for [day] is ready to review"
+  → User reviews and approves (or edits)
+  → Publishes at scheduled time
+```
+
+### 2.4 Failed Post Flow
+```
+Post fails to publish (LinkedIn API error / token expired)
+  → Post status → "failed"
+  → User notified on dashboard
+  → User can: Re-try publish | Copy post | Re-connect LinkedIn
+```
+
+---
+
+## 3. Feature Specifications
+
+### 3.1 Onboarding & Persona Setup
+
+**Purpose:** Collect the information that seeds voice memory and guides every agent.
+
+**Fields:**
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| Name | string | Yes | Display name |
+| LinkedIn headline | string | Yes | Used in brand positioning |
+| Niche | string | Yes | e.g. "Agentic AI", "SaaS Growth" |
+| Content pillars | string[] | Yes | Max 3, used to categorise posts |
+| Tone | enum | Yes | professional / conversational / bold / storytelling |
+| Target audience | string | Yes | e.g. "AI startup founders, CTOs" |
+| Content goal | enum | Yes | grow_followers / get_clients / build_authority / network |
+| Posting frequency | enum | Yes | daily / 3x_week / 2x_week / weekly |
+| Topics to avoid | string[] | No | e.g. "politics", "crypto" |
+| Unique differentiator | string | Yes | What makes you different in your niche |
+
+**Past Post Seeding:**
+- User pastes or uploads minimum 3 past LinkedIn posts
+- System embeds each post into Qdrant `user_voice_memory` collection
+- Shown to user: "X posts indexed — your voice memory is ready"
+- User can add more at any time from Settings
+
+**Completion gate:** User cannot generate until persona + min 3 posts indexed.
+
+---
+
+### 3.2 Agent Pipeline
+
+See Contracts (A1, A2, A3) for full schemas.
+This section describes the orchestration logic.
+
+**Orchestrator flow:**
+```python
+def run_pipeline(user_id, job_id):
+    update_job(job_id, status="researching")
+    research = research_agent.run(user_id)
+    if research.status == "failed":
+        update_job(job_id, status="failed", error=research.reason)
+        return
+
+    update_job(job_id, status="writing")
+    draft = writer_agent.run(user_id, research)
+    if draft.status == "failed":
+        update_job(job_id, status="failed", error=draft.reason)
+        return
+
+    update_job(job_id, status="reviewing")
+    review = reviewer_agent.run(user_id, draft, retry_count=0)
+
+    # Retry loop (max 2 retries)
+    while review.status == "rejected" and review.retry_count < 2:
+        draft = writer_agent.run(user_id, research, feedback=review.specific_feedback)
+        review = reviewer_agent.run(user_id, draft, retry_count=review.retry_count + 1)
+
+    if review.status == "hard_failed":
+        update_job(job_id, status="failed", error=review.reason)
+        save_draft_anyway(job_id, draft.post_content, quality_score=review.quality_score)
+        return
+
+    update_job(job_id, status="done")
+    save_post(user_id, job_id, draft, review)
+```
+
+**Generation rate limit:** 10 per user per day (Constitution, Article 6).
+**Timeout:** Job auto-fails if not completed in 5 minutes.
+
+---
+
+### 3.3 Voice Memory System (Qdrant)
+
+**Collection name:** `user_voice_memory`
+**Embedding model:** `text-embedding-3-small` (OpenAI)
+**Vector dimensions:** 1536
+
+**How it feeds the Writer Agent:**
+1. Writer Agent calls `retrieve_voice_memory(user_id, topic, top_k=5)`
+2. System performs semantic search in Qdrant for user's collection
+3. Returns top 5 most similar past posts by topic
+4. Writer Agent receives them as style examples in system prompt:
+
+```
+Here are examples of how this user writes. Match their voice exactly.
+
+Example 1 (Pillar: Agentic AI):
+"[past post content]"
+
+Example 2 (Pillar: Agentic AI):
+"[past post content]"
+...
+
+Now write a post about: [topic] using this voice.
+```
+
+**Voice memory grows over time:**
+- Each published post is automatically added to Qdrant after publishing
+- Performance score (impressions + reactions) stored in metadata
+- High-performing posts weighted more in future retrieval
+
+---
+
+### 3.4 Depth Score Rules
+
+Applied by Writer Agent and checked by Reviewer Agent.
+Based on LinkedIn's 2026 algorithm behaviour.
+
+```python
+DEPTH_SCORE_RULES = {
+    "hook_max_chars": 49,
+    "optimal_word_count": (150, 300),
+    "banned_phrases": [
+        "comment YES", "drop a like", "share if you agree",
+        "thoughts?", "agree or disagree?", "comment below",
+        "double tap", "save this post", "repost this"
+    ],
+    "ending_style": "genuine_question_or_insight",
+    "line_breaks": "use_single_line_breaks_for_readability",
+    "promotional_in_first_3_lines": False,
+    "emoji_rule": "max_3_per_post_used_sparingly"
+}
+```
+
+---
+
+### 3.5 Dashboard — Home
+
+**URL:** `/dashboard`
+
+**Components:**
+- **Next post card:** Shows next scheduled post preview (or "Generate now" CTA if none)
+- **Quick actions:** Generate Now / View All Posts
+- **Weekly calendar:** 7-day grid showing: scheduled posts (teal dot), published (green dot), empty slots (grey)
+- **Generation status card:** Live status when pipeline is running (Researching → Writing → Reviewing → Done)
+
+---
+
+### 3.6 Dashboard — Post Manager
+
+**URL:** `/dashboard/posts`
+
+**Filters:** Draft | Scheduled | Published | Failed | All
+
+**Post card shows:**
+- Content preview (first 100 chars)
+- Quality score badge (colour-coded: <70 red, 70–85 amber, 85+ green)
+- Status badge
+- Scheduled / published time
+- Topic and pillar tag
+
+**Actions per post:**
+| Status | Available Actions |
+|---|---|
+| Draft | Edit, Approve & Schedule, Delete |
+| Scheduled | Edit, Reschedule, Delete |
+| Published | View on LinkedIn, View Analytics |
+| Failed | Retry Publish, Copy Content, Delete |
+
+**Edit mode:** Inline text editor. User can freely edit post content.
+Quality score badge updates when user saves (re-runs Reviewer Agent on new content).
+
+---
+
+### 3.7 Dashboard — Analytics
+
+**URL:** `/dashboard/analytics`
+
+**Sections:**
+
+**Summary row (4 metric cards):**
+- Total published posts
+- Average impressions per post
+- Average reactions per post
+- Best performing content pillar
+
+**Impressions over time:** Line chart, last 30 days
+
+**Top posts table:** Top 5 posts by total engagement (reactions + comments)
+
+**Insight card (AI-generated):**
+- "Your [pillar] posts get Nx more comments than average"
+- "Posts published on [day] get Nx more impressions"
+- Generated by a lightweight call to GPT-4o-mini using analytics data
+
+---
+
+### 3.8 Dashboard — Settings
+
+**URL:** `/dashboard/settings`
+
+**Sections:**
+
+**Persona:**
+- Edit all persona fields
+- Re-save triggers Qdrant re-embedding of persona notes
+
+**Voice Memory:**
+- Shows count: "47 posts indexed"
+- Upload more past posts
+- Option to clear and re-seed
+
+**LinkedIn Account:**
+- Status: Connected (shows LinkedIn name) / Not connected
+- Connect button / Disconnect button
+- Token expiry warning if < 7 days remaining
+
+**Posting Schedule:**
+- Day-of-week toggles (Mon–Sun)
+- Time picker (user's local timezone)
+- Frequency setting (syncs with Persona)
+
+---
+
+### 3.9 LinkedIn Publishing
+
+**OAuth scope required:** `w_member_social`, `r_basicprofile`
+
+**Publishing flow:**
+1. Celery beat task checks every 5 minutes for posts with `scheduled_at <= now` and `status = scheduled`
+2. For each found post:
+   - Fetch user's LinkedIn access token (decrypt from DB)
+   - Check token expiry — if expired, mark post as `failed`, notify user
+   - Call `POST /v2/ugcPosts` with post content
+   - On success: update `status = published`, store `linkedin_post_id`, `published_at`
+   - On failure: update `status = failed`, store error message
+
+**Analytics sync:**
+- Celery task runs every 6 hours
+- For all posts with `status = published` and `published_at > 7 days ago`
+- Calls LinkedIn Analytics API for impressions, reactions, comments, reposts
+- Updates post record in PostgreSQL
+
+---
+
+## 4. Non-Functional Requirements
+
+| Requirement | Target |
+|---|---|
+| Pipeline completion time | < 60 seconds |
+| Dashboard page load | < 2 seconds |
+| API response time (non-agent) | < 500ms |
+| LinkedIn publish reliability | > 99% (retry on failure) |
+| Voice memory search latency | < 200ms |
+| Concurrent users (MVP) | Up to 50 |
+| Uptime target | 99% (Railway free tier acceptable for MVP) |
+
+---
+
+## 5. Error States
+
+Every error state must have a clear user-facing message and a recovery action.
+
+| Error | User sees | Recovery action |
+|---|---|---|
+| Agent pipeline failed | "Generation failed. Try again." | Retry button |
+| LinkedIn token expired | "LinkedIn disconnected. Reconnect to publish." | Re-connect button |
+| Quality score too low | "Post needs improvement. Edit or regenerate." | Edit / Regenerate |
+| Voice memory empty | "Upload past posts first to seed your voice." | Upload posts CTA |
+| Rate limit hit | "You've hit today's generation limit (10). Try tomorrow." | No action (inform) |
+| Persona not set up | "Complete your persona setup to start generating." | Persona setup CTA |

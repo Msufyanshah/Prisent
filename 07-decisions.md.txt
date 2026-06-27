@@ -1,0 +1,251 @@
+# DECISIONS — AutoPost AI
+
+> Version: 1.0 | Status: Active | Last updated: June 2026
+> This document records every significant architecture decision made during the build.
+> Purpose: Never re-debate a settled question. Never forget why we chose X over Y.
+
+---
+
+## ADR Template
+
+```
+### ADR-XXX — [Decision Title]
+**Date:** [Date]
+**Status:** accepted | superseded | deprecated
+**Supersedes:** ADR-XXX (if applicable)
+
+**Context:**
+What situation forced this decision?
+
+**Decision:**
+What we chose and what we're committed to.
+
+**Alternatives considered:**
+What else was on the table.
+
+**Consequences:**
+What this choice makes easier, what it makes harder, what we accept.
+```
+
+---
+
+## ADR-001 — Use FastAPI Over Django/Flask
+
+**Date:** June 2026
+**Status:** accepted
+
+**Context:**
+We needed a Python backend framework for an agentic AI application.
+The backend needs to: handle async agent jobs, integrate cleanly with OpenAI SDK,
+serve REST APIs, and run Celery tasks alongside.
+
+**Decision:**
+FastAPI with async/await throughout.
+
+**Alternatives considered:**
+- Django REST Framework: Too much ORM magic, sync-first, heavier than needed for an API.
+- Flask: Lightweight but lacks native async, no type hints, too much boilerplate for this scope.
+- Litestar: Modern and fast but smaller ecosystem, less documentation for agent patterns.
+
+**Consequences:**
+✅ Native async — clean integration with async OpenAI SDK calls
+✅ Pydantic models enforce our Contracts schemas automatically
+✅ Fast to build with auto-generated docs at `/docs`
+⚠️ Alembic migrations are separate (not as integrated as Django)
+
+---
+
+## ADR-002 — Use Qdrant Over Weaviate / Pinecone / ChromaDB
+
+**Date:** June 2026
+**Status:** accepted
+
+**Context:**
+Voice memory requires fast semantic search across a user's past posts.
+We need a vector database that is production-ready, agent-friendly, and can
+be self-hosted to avoid external dependencies in MVP.
+
+**Decision:**
+Qdrant, self-hosted via Docker for development, Qdrant Cloud free tier for production.
+
+**Alternatives considered:**
+- Pinecone: Managed, fast, but costs money immediately. API-only (no self-host). Vendor lock-in risk.
+- Weaviate: Open source but heavier to run, more complex configuration, less Python-native SDK.
+- ChromaDB: Great for prototyping but not production-grade at scale. Limited filtering options.
+- pgvector (PostgreSQL extension): Tempting (one DB), but performance lags behind dedicated vector DBs at our query patterns.
+
+**Consequences:**
+✅ Self-hostable — zero cost in development
+✅ Fast filtering by `user_id` at query time (no cross-user data bleed)
+✅ Python SDK is clean and agent-friendly
+✅ Free tier on Qdrant Cloud handles MVP scale easily
+⚠️ If we need >1M vectors, costs will increase (acceptable post-MVP)
+
+---
+
+## ADR-003 — Use GPT-4o for Writer, GPT-4o-mini for Research + Review
+
+**Date:** June 2026
+**Status:** accepted
+
+**Context:**
+The pipeline has three agent calls per post. Using GPT-4o for all three
+would cost ~$0.08–0.12 per generation. At 10 generations/day per user,
+that adds up quickly. We need to balance quality and cost.
+
+**Decision:**
+- Writer Agent: GPT-4o — voice matching requires the best instruction-following model
+- Research Agent: GPT-4o-mini — JSON extraction + web search, doesn't need max intelligence
+- Reviewer Agent: GPT-4o-mini — pattern matching + scoring rubric, mini handles this well
+
+**Alternatives considered:**
+- GPT-4o for all: Best quality, but 3x cost. Not justified for Research + Review tasks.
+- Claude Sonnet for Writer: Strong option, but we're already in OpenAI ecosystem with tool calling. Adding a second provider adds complexity. Revisit post-MVP.
+- Gemini Flash for mini tasks: Cheaper, but OpenAI SDK is already configured. Consistency wins here.
+
+**Consequences:**
+✅ ~60% cost reduction vs all-GPT-4o
+✅ Writer quality not compromised (the thing users feel most)
+⚠️ GPT-4o-mini occasionally misses nuance in Research topic selection — accepted tradeoff
+⚠️ If OpenAI pricing changes, this split may need revisiting (ADR to be written)
+
+---
+
+## ADR-004 — PostgreSQL + Celery + Redis Over Simpler Alternatives
+
+**Date:** June 2026
+**Status:** accepted
+
+**Context:**
+Agent pipelines take 15–60 seconds to run. We cannot block the HTTP request.
+We need async job processing. We also need reliable, schema-enforced data storage.
+
+**Decision:**
+PostgreSQL for structured data + Celery with Redis as broker for async jobs.
+
+**Alternatives considered:**
+- SQLite: Simple, no setup, but no concurrent writes, not production-grade.
+- MongoDB: Flexible schema, but we have well-defined contracts — schema enforcement is valuable, not a burden.
+- Background tasks (FastAPI `BackgroundTasks`): Simple but no visibility, no retry logic, lost on process restart.
+- RQ (Redis Queue): Simpler than Celery but less mature, fewer monitoring options.
+- Temporal/Prefect: Overkill for MVP. Great for post-MVP when workflow complexity grows.
+
+**Consequences:**
+✅ Celery + Redis is battle-tested at scale
+✅ Job status polling works cleanly via DB record updates
+✅ PostgreSQL enforces our data contracts at the DB level
+⚠️ Celery has a non-trivial setup overhead (celery_app.py, beat scheduler, worker management)
+⚠️ Redis adds another service to Docker Compose and production infrastructure
+
+---
+
+## ADR-005 — Deploy on Railway (Backend) + Vercel (Frontend)
+
+**Date:** June 2026
+**Status:** accepted
+
+**Context:**
+We need a deployment target that is fast to set up, handles Docker containers,
+and has reasonable free/starter tiers for an MVP with 5–50 users.
+
+**Decision:**
+Railway for backend (Docker-native, PostgreSQL addon, Redis addon), Vercel for frontend (Next.js native).
+
+**Alternatives considered:**
+- AWS (EC2 + RDS + ElastiCache): Correct at scale, but 10x the setup time. Not justified for MVP.
+- Heroku: Classic choice but expensive now ($7/dyno minimum), limited free tier.
+- Render: Good alternative to Railway, nearly identical. Railway wins on Python/Docker DX.
+- DigitalOcean App Platform: Solid, but fewer free tier options than Railway for MVP.
+- Self-hosted VPS: Maximum control but Sufyan would spend days on DevOps instead of product.
+
+**Consequences:**
+✅ Railway deploys Docker containers natively — matches our local docker-compose setup
+✅ Railway PostgreSQL and Redis addons eliminate separate DB hosting
+✅ Vercel + Next.js is zero-config
+✅ Both have generous free tiers for MVP scale
+⚠️ Railway cold starts can add 1–2s latency on free tier — acceptable for MVP
+⚠️ Must migrate to production-grade infra before reaching 500+ users
+
+---
+
+## ADR-006 — Use Fernet (AES-128 CBC) for LinkedIn Token Encryption
+
+**Date:** June 2026
+**Status:** accepted
+
+**Context:**
+LinkedIn OAuth tokens stored in PostgreSQL must be encrypted at rest.
+A leaked DB dump must not expose usable tokens. Constitution Article 6 mandates this.
+
+**Decision:**
+Python `cryptography` library Fernet implementation. Key stored in `.env` as `ENCRYPTION_KEY`.
+
+**Alternatives considered:**
+- Store plain text: Rejected immediately. Constitution violation.
+- AES-256-GCM (manual): More control but more code. Fernet handles IV generation and HMAC correctly by default.
+- HashiCorp Vault: Correct for enterprise, overkill for MVP. Consider post-Series A.
+- AWS KMS: Same — excellent, post-MVP.
+
+**Consequences:**
+✅ Fernet is authenticated encryption — protects against both read and tampering
+✅ Simple Python API: encrypt/decrypt in 2 lines
+✅ Key rotation possible by re-encrypting stored tokens with new key
+⚠️ Fernet uses AES-128 (not AES-256). Accepted for MVP — not a meaningful vulnerability at this scale.
+⚠️ If `ENCRYPTION_KEY` is leaked, all tokens are exposed. Key management must be strict.
+
+---
+
+## ADR-007 — Manual Human Approval Required Before Every Publish
+
+**Date:** June 2026
+**Status:** accepted
+
+**Context:**
+AutoPost AI could technically be built to publish posts fully autonomously
+without any human review. This would be the most "agentic" approach.
+
+**Decision:**
+Every post requires explicit human approval from the dashboard before publishing.
+Auto-publishing without approval is prohibited in MVP (Constitution Article 2, Principle 3).
+
+**Alternatives considered:**
+- Fully autonomous publish: Fastest for user, but a single bad post can damage their brand permanently. A LinkedIn post with a factual error or off-brand tone is a professional risk.
+- Auto-publish if quality score ≥ 90: Tempting, but quality score measures our rubric, not the user's judgment. Their audience knows them better than our scorer.
+- Optional toggle (auto vs manual): Increases complexity. Build the trusted, safe version first. Add the toggle when users ask for it.
+
+**Consequences:**
+✅ Protects users from AI mistakes reaching their professional audience
+✅ Builds trust — users learn to trust the output before delegating fully
+✅ Simpler system — no "auto-publish gate" logic to maintain
+⚠️ Requires users to check the dashboard regularly — slightly more friction
+⚠️ If user doesn't approve in time, scheduled post may miss the optimal window (acceptable for MVP)
+
+---
+
+## Decision Log — Quick Reference
+
+| ADR | Decision | Date | Status |
+|---|---|---|---|
+| ADR-001 | FastAPI over Django/Flask | June 2026 | accepted |
+| ADR-002 | Qdrant over Weaviate/Pinecone | June 2026 | accepted |
+| ADR-003 | GPT-4o for Writer, mini for others | June 2026 | accepted |
+| ADR-004 | PostgreSQL + Celery + Redis | June 2026 | accepted |
+| ADR-005 | Railway + Vercel for deployment | June 2026 | accepted |
+| ADR-006 | Fernet encryption for LinkedIn tokens | June 2026 | accepted |
+| ADR-007 | Human approval required before publish | June 2026 | accepted |
+
+---
+
+## How to Add a New ADR
+
+1. Copy the template at the top of this file
+2. Increment the ADR number
+3. Fill in all sections — especially "Alternatives considered"
+4. Add to the quick reference table
+5. If this ADR supersedes a previous one, update the old ADR's status to "superseded"
+
+**When to write an ADR:**
+- Choosing between two or more technologies
+- Changing a technology already chosen
+- A decision that someone might reasonably question or re-open in 2 weeks
+- Any deviation from what the Constitution specifies

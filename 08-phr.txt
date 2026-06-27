@@ -1,0 +1,249 @@
+# PHR — Progress Health Reports
+
+> Version: 2.0 | Layer 08 of SpecKit-Plus
+> A PHR is filed after every completed task — not at end of day.
+> PHR status FAIL or PARTIAL = next task is blocked until resolved.
+
+---
+
+## Why PHR Exists
+
+Traditional development testing at the end creates:
+- Bug accumulation across multiple tasks
+- Hallucinated implementations that "look right" but don't work
+- Frontend-backend integration failures discovered too late
+- Wasted time unwinding 5 tasks to fix 1 root cause
+
+PHR forces verification at the smallest possible unit.
+One task. One test. One report. Move forward only when it passes.
+
+---
+
+## PHR Template
+
+Copy this for every task. File as `PHR-[TASK-ID].md`.
+
+```markdown
+# PHR — TASK-XXX [Task Title]
+
+**Date:** YYYY-MM-DD
+**Day:** D[N]
+**Time started:** HH:MM
+**Time completed:** HH:MM
+**Time taken:** Xh Xmin
+**Estimated time:** Xh
+**Variance:** +/- Xh (over/under)
+
+---
+
+## Smoke Test Results
+
+| Test | Command | Expected | Actual | Result |
+|---|---|---|---|---|
+| 1 | `command here` | expected output | actual output | ✅ PASS / ❌ FAIL |
+| 2 | `command here` | expected output | actual output | ✅ PASS / ❌ FAIL |
+| 3 | `command here` | expected output | actual output | ✅ PASS / ❌ FAIL |
+
+---
+
+## Overall Status
+
+**Status:** ✅ PASS | ⚠️ PARTIAL | ❌ FAIL
+
+---
+
+## Deviations from Spec
+
+> Did the implementation deviate from the Contracts or Specification?
+
+- [ ] No deviations — implemented exactly as specified
+- [ ] Minor deviation: [describe]
+- [ ] Major deviation: [describe — must update Contracts/Spec]
+
+---
+
+## Blockers for Next Task
+
+> Is anything blocking the next task?
+
+- [ ] No blockers — next task can start immediately
+- [ ] Blocker: [describe the blocker and plan to resolve]
+
+---
+
+## Notes
+
+> Anything unusual, surprising, or worth remembering.
+
+[Free text]
+
+---
+
+## Action Required
+
+> What must happen before next task starts?
+
+- [ ] None — PASS, proceed to TASK-XXX
+- [ ] Fix failing smoke test [X] — then re-run before proceeding
+- [ ] Update CONTRACTS.md — deviation documented
+- [ ] Add ADR to DECISIONS.md — tech choice made
+- [ ] Escalate blocker — stuck more than 30 min on: [describe]
+```
+
+---
+
+## Filled PHR Examples
+
+### PHR-005 (TASK-005 — Auth Endpoints) — Example of a PASS
+
+```markdown
+# PHR — TASK-005 Auth Service + Register/Login
+
+Date: June 2026
+Day: D1
+Time taken: 1h 20min
+Estimated: 1.5h
+Variance: -10min (under estimate — good)
+
+## Smoke Test Results
+| Test | Command | Expected | Actual | Result |
+|---|---|---|---|---|
+| 1 | POST /auth/register | {token: "eyJ..."} | Got token | ✅ PASS |
+| 2 | POST /auth/register (dupe) | EMAIL_TAKEN error | Got error | ✅ PASS |
+| 3 | POST /auth/login | {token: "eyJ..."} | Got token | ✅ PASS |
+| 4 | POST /auth/login (wrong pw) | INVALID_CREDENTIALS | Got error | ✅ PASS |
+
+Status: ✅ PASS
+Deviations: None
+Blockers: None
+Notes: bcrypt hashing takes ~200ms which is expected. JWT expiry set to 24h.
+Action: Proceed to TASK-006
+```
+
+### PHR-008 (TASK-008 — Qdrant Client) — Example of a PARTIAL
+
+```markdown
+# PHR — TASK-008 Qdrant Client Service
+
+Date: June 2026
+Day: D2
+Time taken: 2h 45min
+Estimated: 1.5h
+Variance: +1h 15min (OVER — log why)
+
+## Smoke Test Results
+| Test | Expected | Actual | Result |
+|---|---|---|---|
+| 1: upsert_document | doc_id returned | Got doc_id | ✅ PASS |
+| 2: retrieve by topic | 1+ results | Got 1 result | ✅ PASS |
+| 3: count documents | count >= 1 | Got count | ✅ PASS |
+| 4: user isolation | 0 results for other user | Got 0 results | ✅ PASS |
+
+Status: ⚠️ PARTIAL
+Deviations: upsert_batch not implemented — ran out of time
+Blockers: TASK-009 (seed-posts) needs upsert_batch — need to complete it first
+Notes: Spent 45min debugging Qdrant filter syntax — MatchValue vs MatchAny
+Action: Complete upsert_batch before starting TASK-009. 30min task.
+```
+
+### PHR-013 (TASK-013 — Research Agent) — Example of a FAIL
+
+```markdown
+# PHR — TASK-013 Research Agent
+
+Date: June 2026
+Day: D3
+Time taken: 3h 30min
+Estimated: 2.5h
+Variance: +1h (OVER)
+
+## Smoke Test Results
+| Test | Expected | Actual | Result |
+|---|---|---|---|
+| 1: status == success | "success" | "success" | ✅ PASS |
+| 2: content_pillar valid | matches user pillars | Got "General" | ❌ FAIL |
+| 3: agent under 30s | < 30s | 47 seconds | ❌ FAIL |
+
+Status: ❌ FAIL
+Deviations:
+  - content_pillar validation not working — agent ignores instruction
+  - Response time too slow — GPT-4o-mini doing 5 tool calls unnecessarily
+
+Blockers: TASK-014 (Writer Agent) depends on Research output being valid
+Root cause:
+  1. Pillar validation: System prompt not explicit enough — need to add examples
+  2. Speed: Mock web_search returning too much text — agent over-searches
+
+Fix plan:
+  1. Add explicit pillar examples to system prompt
+  2. Truncate mock_web_search output to 200 chars
+  3. Add max_tool_calls=3 to agent loop
+  4. Re-run smoke test
+
+Action: Fix both issues, re-run all smoke tests. Do NOT start TASK-014 until PASS.
+```
+
+---
+
+## Daily Integration PHR
+
+At end of every day, file one additional PHR: `PHR-D[N]-INTEGRATION.md`
+
+```markdown
+# PHR — Day [N] Integration Checkpoint
+
+**Tasks completed today:** TASK-XXX, TASK-XXX, ...
+**All individual PHRs filed:** Yes / No
+
+## End-to-End Integration Test
+[paste the integration checkpoint command from TASKS.md and its output]
+
+## Integration Status: ✅ PASS | ❌ FAIL
+
+## Carry-forward issues (if any)
+[Any PARTIAL tasks or unresolved blockers going into tomorrow]
+
+## Tomorrow's readiness
+- [ ] All today's smoke tests passing
+- [ ] No unresolved FAIL PHRs
+- [ ] Know exactly which task to start tomorrow
+- [ ] Contracts/Spec updated if any deviations logged
+```
+
+---
+
+## PHR Log — Master Index
+
+| PHR | Task | Day | Status | Filed |
+|---|---|---|---|---|
+| PHR-001 | TASK-001 Repo init | D1 | — | ☐ |
+| PHR-002 | TASK-002 FastAPI skeleton | D1 | — | ☐ |
+| PHR-003 | TASK-003 Docker Compose | D1 | — | ☐ |
+| PHR-004 | TASK-004 DB models | D1 | — | ☐ |
+| PHR-005 | TASK-005 Auth endpoints | D1 | — | ☐ |
+| PHR-D1 | Day 1 Integration | D1 | — | ☐ |
+| PHR-006 | TASK-006 Qdrant setup | D2 | — | ☐ |
+| PHR-007 | TASK-007 Embeddings | D2 | — | ☐ |
+| PHR-008 | TASK-008 Qdrant client | D2 | — | ☐ |
+| PHR-009 | TASK-009 Seed posts | D2 | — | ☐ |
+| PHR-D2 | Day 2 Integration | D2 | — | ☐ |
+| PHR-010 | TASK-010 Persona CRUD | D3 | — | ☐ |
+| PHR-011 | TASK-011 Persona embedding | D3 | — | ☐ |
+| PHR-012 | TASK-012 Rate limiter | D3 | — | ☐ |
+| PHR-013 | TASK-013 Research Agent | D3 | — | ☐ |
+| PHR-D3 | Day 3 Integration | D3 | — | ☐ |
+| PHR-014 | TASK-014 Writer Agent | D4 | — | ☐ |
+| PHR-015 | TASK-015 Reviewer Agent | D4 | — | ☐ |
+| PHR-016 | TASK-016 Orchestrator | D4 | — | ☐ |
+| PHR-017 | TASK-017 Celery pipeline | D4 | — | ☐ |
+| PHR-018 | TASK-018 Generate endpoints | D4 | — | ☐ |
+| PHR-D4 | Day 4 Integration | D4 | — | ☐ |
+| PHR-019 | TASK-019 LinkedIn OAuth | D5 | — | ☐ |
+| PHR-020 | TASK-020 LinkedIn publisher | D5 | — | ☐ |
+| PHR-021 | TASK-021 Celery scheduler | D5 | — | ☐ |
+| PHR-022 | TASK-022 Analytics sync | D5 | — | ☐ |
+| PHR-D5 | Day 5 Integration | D5 | — | ☐ |
+| ... | ... | ... | — | ☐ |
+| PHR-D21 | Final integration | D21 | — | ☐ |
+
+**Rule:** No task proceeds to the next until its PHR row shows ✅ PASS.

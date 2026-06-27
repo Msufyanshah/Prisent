@@ -1,0 +1,300 @@
+# IMPLEMENTATION — AutoPost AI
+
+> Version: 1.0 | Status: Active | Last updated: June 2026
+> This document maps implementation to spec.
+> Every major code decision references a task and a spec section.
+> This is a living document — update it as you build.
+
+---
+
+## How to Use This Document
+
+- Before writing a significant piece of code, find the task it belongs to and note it here.
+- After completing a task, write a 2–3 line note on how you implemented it and any deviation from spec.
+- If you deviate from a contract or spec, you MUST note it here AND update the relevant document.
+
+---
+
+## Folder Structure
+
+```
+autopost-ai/
+├── backend/
+│   ├── app/
+│   │   ├── main.py               # FastAPI entry, router registration, CORS
+│   │   ├── config.py             # Pydantic settings from .env
+│   │   ├── database.py           # SQLAlchemy engine + session factory
+│   │   ├── models/
+│   │   │   ├── __init__.py
+│   │   │   ├── user.py           # User SQLAlchemy model
+│   │   │   ├── persona.py        # Persona SQLAlchemy model
+│   │   │   ├── post.py           # Post SQLAlchemy model
+│   │   │   └── agent_job.py      # AgentJob SQLAlchemy model
+│   │   ├── schemas/              # Pydantic request/response schemas
+│   │   │   ├── user.py
+│   │   │   ├── persona.py
+│   │   │   ├── post.py
+│   │   │   └── agent_job.py
+│   │   ├── routes/
+│   │   │   ├── auth.py           # /auth/* endpoints
+│   │   │   ├── persona.py        # /persona/* endpoints
+│   │   │   ├── posts.py          # /posts/* endpoints
+│   │   │   ├── generate.py       # /generate/* endpoints
+│   │   │   └── analytics.py      # /analytics/* endpoints
+│   │   ├── agents/
+│   │   │   ├── __init__.py
+│   │   │   ├── orchestrator.py   # Chains agents, handles retries
+│   │   │   ├── research_agent.py # Research Agent + tools
+│   │   │   ├── writer_agent.py   # Writer Agent + voice injection
+│   │   │   └── reviewer_agent.py # Reviewer Agent + scoring
+│   │   ├── services/
+│   │   │   ├── qdrant_client.py  # Vector DB operations
+│   │   │   ├── embeddings.py     # OpenAI embedding wrapper
+│   │   │   ├── linkedin.py       # OAuth + UGC Posts API + Analytics
+│   │   │   ├── auth.py           # JWT creation + validation
+│   │   │   └── encryption.py     # Token encryption (Fernet)
+│   │   ├── tasks/
+│   │   │   ├── celery_app.py     # Celery + Redis config
+│   │   │   ├── pipeline.py       # Celery task: run agent pipeline
+│   │   │   ├── scheduler.py      # Celery beat: publish scheduled posts
+│   │   │   └── analytics_sync.py # Celery beat: sync LinkedIn analytics
+│   │   └── constants/
+│   │       ├── depth_score.py    # DEPTH_SCORE_RULES dict
+│   │       └── prompts.py        # All agent system prompts as constants
+│   ├── alembic/
+│   │   ├── env.py
+│   │   └── versions/
+│   │       └── 001_initial_schema.py
+│   ├── tests/
+│   │   ├── test_agents.py
+│   │   ├── test_auth.py
+│   │   ├── test_persona.py
+│   │   └── test_pipeline.py
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   ├── requirements.txt
+│   └── .env.example
+│
+├── frontend/
+│   ├── app/
+│   │   ├── (auth)/
+│   │   │   ├── login/
+│   │   │   │   └── page.tsx
+│   │   │   └── register/
+│   │   │       └── page.tsx
+│   │   ├── dashboard/
+│   │   │   ├── layout.tsx        # Sidebar + nav wrapper
+│   │   │   ├── page.tsx          # Home: calendar + generate
+│   │   │   ├── posts/
+│   │   │   │   └── page.tsx      # Post manager
+│   │   │   ├── analytics/
+│   │   │   │   └── page.tsx      # Analytics dashboard
+│   │   │   └── settings/
+│   │   │       └── page.tsx      # Persona + LinkedIn settings
+│   │   ├── layout.tsx            # Root layout + NextAuth provider
+│   │   └── globals.css
+│   ├── components/
+│   │   ├── ui/                   # shadcn/ui components (auto-generated)
+│   │   ├── PostCard.tsx          # Post preview card with actions
+│   │   ├── CalendarGrid.tsx      # 7-day calendar component
+│   │   ├── PersonaForm.tsx       # Full persona setup form
+│   │   ├── GenerationStatus.tsx  # Live pipeline status display
+│   │   ├── QualityBadge.tsx      # Colour-coded score badge
+│   │   └── AgentStatus.tsx       # Research/Writing/Reviewing indicator
+│   ├── lib/
+│   │   ├── api.ts                # Axios/fetch wrapper with auth header
+│   │   ├── auth.ts               # NextAuth config
+│   │   └── types.ts              # TypeScript types matching Contracts
+│   ├── hooks/
+│   │   ├── useGenerationPoll.ts  # Polls /generate/{job_id} until done
+│   │   └── useAnalytics.ts       # Analytics data fetching hook
+│   ├── next.config.js
+│   ├── tailwind.config.ts
+│   └── package.json
+│
+├── speckit/                      # This documentation system
+│   ├── README.md
+│   ├── 01-constitution/
+│   ├── 02-contracts/
+│   ├── 03-specification/
+│   ├── 04-plan/
+│   ├── 05-tasks/
+│   ├── 06-implementation/        ← You are here
+│   └── 07-decisions/
+│
+├── BACKLOG.md                    # Ideas deferred from MVP
+├── docker-compose.yml            # Root-level for full stack
+└── README.md
+```
+
+---
+
+## Key Implementation Notes
+
+### Agent System Prompts
+All system prompts are stored in `app/constants/prompts.py` as Python constants.
+They are never constructed at runtime. This is a Constitution requirement.
+
+```python
+# app/constants/prompts.py
+
+RESEARCH_AGENT_SYSTEM_PROMPT = """
+You are a LinkedIn content strategist for {niche} creators.
+Your job is to find the single best topic to post about right now.
+
+Rules:
+- Only recommend topics aligned with these pillars: {pillars}
+- Never recommend topics in this avoid list: {avoid_topics}
+- Check recent posts to avoid repeating topics from the last 14 days
+- Evaluate trend score based on: search demand, competition level, audience relevance
+- Always output valid JSON matching the ResearchAgentOutput schema
+
+You have access to: web_search, get_user_context, check_recent_posts
+"""
+
+WRITER_AGENT_SYSTEM_PROMPT = """
+You are a ghostwriter who writes LinkedIn posts that sound exactly like a specific person.
+Your only job is to write in their voice — not yours, not generic AI, theirs.
+
+Voice examples (study these carefully — match their style):
+{voice_samples}
+
+Their tone preference: {tone}
+Their content goal: {content_goal}
+What makes them unique: {unique_differentiator}
+
+Depth Score Rules (LinkedIn 2026 algorithm):
+- Hook: under 49 characters
+- Length: 150–300 words
+- No banned phrases: {banned_phrases}
+- End with genuine question or insight — not a CTA
+- No promotional language in first 3 lines
+
+Topic to write about: {topic}
+Angle to take: {angle}
+
+Output valid JSON matching the WriterAgentOutput schema.
+"""
+
+REVIEWER_AGENT_SYSTEM_PROMPT = """
+You are a LinkedIn content quality reviewer.
+Score the post below on 5 dimensions (0–20 each, total 100).
+
+Scoring dimensions:
+1. Voice match: Does it sound like the user based on their past posts?
+2. Hook quality: Under 49 chars? Stops the scroll without bait?
+3. Depth score compliance: No bait phrases, genuine ending, dwell-worthy?
+4. Clarity: Clear idea, well structured, easy to read?
+5. Authenticity: No hallucinated stats, no generic AI phrasing?
+
+Approve if total >= 70. Reject with specific feedback if < 70.
+Hard fail if retry_count >= 2.
+
+User's voice samples for comparison:
+{voice_samples}
+
+Post to review:
+{post_content}
+
+Output valid JSON matching the ReviewerAgentOutput schema.
+"""
+```
+
+---
+
+### Voice Memory Retrieval Pattern
+
+```python
+# app/services/qdrant_client.py
+
+async def retrieve_voice_memory(
+    user_id: str,
+    topic: str,
+    top_k: int = 5
+) -> list[dict]:
+    query_vector = await embed_text(topic)
+    results = qdrant.search(
+        collection_name="user_voice_memory",
+        query_vector=query_vector,
+        query_filter=Filter(
+            must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))]
+        ),
+        limit=top_k
+    )
+    return [
+        {
+            "content": r.payload["content"],
+            "pillar": r.payload["metadata"]["pillar"],
+            "score": r.score
+        }
+        for r in results
+    ]
+```
+
+---
+
+### LinkedIn Token Encryption Pattern
+
+```python
+# app/services/encryption.py
+from cryptography.fernet import Fernet
+
+def get_fernet() -> Fernet:
+    key = settings.ENCRYPTION_KEY.encode()
+    return Fernet(key)
+
+def encrypt_token(token: str) -> str:
+    return get_fernet().encrypt(token.encode()).decode()
+
+def decrypt_token(encrypted: str) -> str:
+    return get_fernet().decrypt(encrypted.encode()).decode()
+```
+
+---
+
+## Dev Log
+
+Use this section as a running diary during the build. 
+Add an entry every day. Keep it brief.
+
+```
+Format:
+[D{N}] [Date] — [What you did] | [Any deviation from spec] | [Blockers]
+```
+
+| Entry | Date | What was built | Deviations | Blockers |
+|---|---|---|---|---|
+| D1 | — | — | — | — |
+| D2 | — | — | — | — |
+| D3 | — | — | — | — |
+| D4 | — | — | — | — |
+| D5 | — | — | — | — |
+| D6 | — | — | — | — |
+| D7 | — | — | — | — |
+| D8 | — | — | — | — |
+| D9 | — | — | — | — |
+| D10 | — | — | — | — |
+| D11 | — | — | — | — |
+| D12 | — | — | — | — |
+| D13 | — | — | — | — |
+| D14 | — | — | — | — |
+| D15 | — | — | — | — |
+| D16 | — | — | — | — |
+| D17 | — | — | — | — |
+| D18 | — | — | — | — |
+| D19 | — | — | — | — |
+| D20 | — | — | — | — |
+| D21 | — | — | — | — |
+
+---
+
+## Spec Compliance Tracker
+
+Track when implementation diverges from specification.
+Any divergence requires an explanation and a Contracts/Spec update.
+
+| Task | Spec Reference | Implemented As | Divergence? | Notes |
+|---|---|---|---|---|
+| TASK-013 | Spec 3.3, Contract A2 | — | — | — |
+| TASK-014 | Contract A3 | — | — | — |
+| TASK-015 | Spec 3.2 | — | — | — |

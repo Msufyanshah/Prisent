@@ -1,0 +1,272 @@
+# PLAN — AutoPost AI
+
+> Version: 1.0 | Status: Active | Last updated: June 2026
+> This document defines when we build what.
+> For what we build → Specification. For atomic work units → Tasks.
+
+---
+
+## Commitment
+
+- **Duration:** 3 weeks (21 working days)
+- **Daily hours:** 6–8 hours focused work
+- **Ship date:** End of Week 3
+- **Scope freeze:** No new features added once Week 1 starts
+  (New ideas go to `BACKLOG.md`, not here)
+
+---
+
+## Milestone Map
+
+```
+Week 1                  Week 2                  Week 3
+━━━━━━━━━━━━━━━━━━━━━   ━━━━━━━━━━━━━━━━━━━━━   ━━━━━━━━━━━━━━━━━━━━━
+Foundation & Backend    LinkedIn + Dashboard    Polish & Launch
+━━━━━━━━━━━━━━━━━━━━━   ━━━━━━━━━━━━━━━━━━━━━   ━━━━━━━━━━━━━━━━━━━━━
+D1: Project setup       D8:  LinkedIn OAuth     D15: Analytics UI
+D2: Qdrant + memory     D9:  Auto-posting        D16: Error handling
+D3: Persona system      D10: Analytics pull      D17: Quality pass
+D4: Research Agent      D11: Next.js setup       D18: Deployment
+D5: Writer Agent        D12: Dashboard home      D19: Security
+D6: Reviewer Agent      D13: Post Manager        D20: Beta testing
+D7: Orchestrator        D14: Settings UI         D21: Launch
+━━━━━━━━━━━━━━━━━━━━━   ━━━━━━━━━━━━━━━━━━━━━   ━━━━━━━━━━━━━━━━━━━━━
+EXIT: Pipeline E2E      EXIT: Post published    EXIT: Live + 5 users
+```
+
+---
+
+## Week 1 — Foundation & Backend Core
+
+**Theme:** Everything invisible. The engine before the car.
+
+**Exit criteria (all must pass before Week 2 starts):**
+- [ ] Full agent pipeline runs end-to-end (Research → Write → Review)
+- [ ] Generated post saved to database with quality score
+- [ ] Voice memory influences writer output (confirmed by comparison test)
+- [ ] All API routes return correct responses (tested via Postman/pytest)
+
+### Day 1 — Project Setup
+**Focus:** Skeleton before flesh.
+- GitHub repo (mono-repo: `/backend` + `/frontend`)
+- FastAPI project structure
+- PostgreSQL + Redis via Docker Compose
+- Alembic migrations: users, personas, posts, agent_jobs tables
+- `.env` config with all required variables
+- Register + Login endpoints (email/password)
+- Health check endpoint
+
+### Day 2 — Qdrant + Voice Memory
+**Focus:** The most important infrastructure day.
+- Qdrant running (Docker or Qdrant Cloud free tier)
+- `user_voice_memory` collection created
+- `qdrant_client.py` helper: upsert, semantic search, delete by user
+- `embeddings.py`: wraps OpenAI `text-embedding-3-small`
+- `POST /persona/seed-posts` endpoint
+- `embed_and_store()` function tested with 5 sample posts
+- Semantic search returning correct results for test queries
+
+### Day 3 — Persona System
+**Focus:** The user's identity in the system.
+- `GET /persona` and `POST /persona` endpoints
+- Persona saved to PostgreSQL
+- On persona save → auto-embed persona notes into Qdrant
+- `get_persona_style(user_id)` retrieval function
+- Validation: all required fields, enum values
+
+### Day 4 — Research Agent
+**Focus:** The agent that decides what to write about.
+- OpenAI SDK with tool calling configured
+- Tools defined: `web_search`, `get_user_context`, `check_recent_posts`
+- Research Agent system prompt written and stored as constant
+- Agent runner with tool loop
+- Output validated against Contract A1 schema
+- Research output saved to `agent_jobs` table
+
+### Day 5 — Writer Agent ⭐ (Most Important Day)
+**Focus:** The agent that sounds like the user.
+- `retrieve_voice_memory(user_id, topic, top_k=5)` — semantic search Qdrant
+- Writer Agent system prompt with voice sample injection
+- Depth score rules applied to prompt
+- Post draft output validated against Contract A2 schema
+- Manual comparison test: does output resemble uploaded past posts?
+- Draft saved to `posts` table with `status=draft`
+
+### Day 6 — Reviewer Agent
+**Focus:** The quality gate.
+- Reviewer Agent system prompt with scoring rubric
+- Quality score calculation (5 dimensions × 20 each)
+- Banned phrases check (exact match from DEPTH_SCORE_RULES list)
+- Retry flag set correctly when score < 70
+- Hard fail path (max retries) tested
+- Output validated against Contract A3 schema
+
+### Day 7 — Orchestrator + Async Pipeline
+**Focus:** Wiring the agents together.
+- `orchestrator.py` chains Research → Writer → Reviewer
+- Retry loop implemented (max 2 retries)
+- Celery task wrapping the orchestrator
+- `POST /generate` returns `job_id` immediately
+- `GET /generate/{job_id}` polling with live status messages
+- Full E2E test: trigger → poll → done → post in database
+
+---
+
+## Week 2 — LinkedIn Integration & Dashboard
+
+**Theme:** Making it real. Users can see and touch the product.
+
+**Exit criteria (all must pass before Week 3 starts):**
+- [ ] A real LinkedIn post published from the dashboard
+- [ ] Full UI accessible and functional (all 4 pages)
+- [ ] Persona editable and changes reflected in next generation
+
+### Day 8 — LinkedIn OAuth
+**Focus:** Connecting the pipeline to the real world.
+- LinkedIn Developer App registered
+- Permissions requested: `w_member_social`, `r_basicprofile`
+- `GET /auth/linkedin/connect` → redirect to LinkedIn
+- `GET /auth/linkedin/callback` → exchange code, encrypt token, store
+- Token encryption implemented (Fernet / AES-256)
+- Full OAuth flow tested manually
+
+### Day 9 — LinkedIn Auto-Posting
+**Focus:** The moment the product becomes real.
+- `linkedin_publisher.py`: calls `POST /v2/ugcPosts`
+- `POST /posts/{id}/publish-now` endpoint
+- `POST /posts/{id}/approve` endpoint (sets `scheduled_at`)
+- Celery beat task: scans for scheduled posts every 5 mins
+- On publish: `status=published`, `linkedin_post_id` stored
+- Test: real post published to LinkedIn ✅
+
+### Day 10 — Analytics Pull
+**Focus:** Closing the feedback loop.
+- `linkedin_analytics.py`: calls LinkedIn Analytics API
+- Pulls impressions, reactions, comments, reposts per post
+- Celery task: refresh analytics every 6 hours
+- `GET /analytics/summary` endpoint
+- `GET /analytics/posts` endpoint
+
+### Day 11 — Next.js Frontend Setup
+**Focus:** The shell of the UI.
+- Next.js 14 App Router initialised
+- Tailwind CSS + shadcn/ui configured
+- NextAuth.js setup (email/password + LinkedIn)
+- Sidebar layout component
+- Login / Register pages functional
+- API client (`lib/api.ts`) with auth header injection
+
+### Day 12 — Dashboard Home Page
+**Focus:** The first thing users see every day.
+- `/dashboard` page
+- Next scheduled post preview card
+- 7-day calendar grid component
+- "Generate Now" button → calls `POST /generate` → starts polling
+- Live status display (Researching → Writing → Reviewing → Done)
+- Post appears in dashboard on completion
+
+### Day 13 — Post Manager Page
+**Focus:** Where posts live and die.
+- `/dashboard/posts` page
+- Post list with status filter tabs
+- PostCard component: preview, quality score badge, actions
+- Approve & Schedule modal (date/time picker)
+- Inline edit mode
+- Publish Now button
+- Full flow: generate → review → approve → publish
+
+### Day 14 — Settings + Persona UI
+**Focus:** User control over their identity in the system.
+- `/dashboard/settings` page
+- Persona form (all fields, validation)
+- Past posts upload (textarea → `POST /persona/seed-posts`)
+- LinkedIn connection status + connect/disconnect
+- Posting schedule configuration (days + time picker)
+
+---
+
+## Week 3 — Polish, Deploy & Launch
+
+**Theme:** Ship something people can actually use.
+
+**Exit criteria (definition of shipped):**
+- [ ] Product live on public URL
+- [ ] 2 real LinkedIn posts published via the tool (by Sufyan)
+- [ ] First 5 beta users signed up
+
+### Day 15 — Analytics Dashboard
+- `/dashboard/analytics` page
+- Line chart: impressions over 30 days (recharts or Chart.js)
+- Top 5 posts table
+- Summary metric cards (4-up)
+- AI insight card (GPT-4o-mini call on analytics data)
+
+### Day 16 — Error Handling & Edge Cases
+- LinkedIn token expiry detection + auto re-auth prompt
+- Agent pipeline failure UI (error state, retry button)
+- Empty voice memory graceful fallback
+- OpenAI rate limit handling (exponential backoff)
+- All frontend pages have error toasts + loading states
+
+### Day 17 — Quality & UX Pass
+- Generate 10 test posts, review quality manually
+- Tune Writer Agent system prompt based on weak outputs
+- Adjust Reviewer Agent thresholds if needed
+- Mobile responsiveness check on all pages
+- Empty state designs for all pages (no posts, not connected, etc.)
+
+### Day 18 — Deployment
+- `Dockerfile` for FastAPI backend
+- `docker-compose.yml` (backend + postgres + redis + qdrant)
+- Test: full stack via docker-compose locally
+- Deploy backend to Railway
+- Deploy frontend to Vercel
+- Set all production `.env` vars
+- End-to-end test on live URLs
+
+### Day 19 — Security Hardening
+- JWT middleware on all protected routes (audit every route)
+- LinkedIn token AES encryption verified in production
+- Input validation audit (Pydantic on all request bodies)
+- Rate limiting on `/generate` (10/day per user)
+- No hardcoded secrets scan (grep for API keys)
+- Write `README.md` with setup instructions
+
+### Day 20 — Beta Testing Day
+- Use the product for 1 full day as a real user
+- Generate 5 posts end-to-end
+- Approve and publish 2 posts to real LinkedIn
+- Write down every friction point experienced
+- Fix the top 3 most painful issues
+
+### Day 21 — Launch
+- Record 2-min Loom demo (screen record of full flow)
+- Write a LinkedIn post about what was built (use the tool itself)
+- Post on Product Hunt (draft listing)
+- Share in GIAIC community + Panaversity Discord
+- Landing page: single Next.js page with hero + waitlist form
+- Goal: 5 beta users signed up by end of day
+
+---
+
+## Scope Freeze Policy
+
+If a new idea comes up during the build:
+1. Write it in `BACKLOG.md` with a one-line description
+2. Do not touch it until Day 22
+3. If it's critical enough to block the MVP, it should have been in the Constitution
+
+This rule exists because scope creep is the #1 reason projects never ship.
+
+---
+
+## Risk Register
+
+| Risk | Probability | Impact | Mitigation | Owner |
+|---|---|---|---|---|
+| LinkedIn API permissions delayed | Medium | High | Apply Day 8. Manual copy-paste fallback. | Sufyan |
+| Agent quality inconsistent | High | High | 80% of Day 5 spent on prompt quality | Sufyan |
+| Scope creep | High | High | BACKLOG.md rule. Strict freeze. | Sufyan |
+| Voice memory too generic early | Medium | Medium | Require 5+ posts, show memory content to user | Sufyan |
+| OpenAI costs spike | Low | Medium | Use GPT-4o-mini for Research + Review | Sufyan |
+| Railway deployment issues | Low | High | Test Docker locally first, 1 day buffer | Sufyan |

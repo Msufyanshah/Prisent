@@ -1,0 +1,206 @@
+# CONSTITUTION — AutoPost AI
+
+> Version: 2.0 | Status: Active | Amended: June 2026
+> Supreme law of AutoPost AI. All specs, contracts, tasks, and code derive from this.
+> To amend: state the reason, increment the version, log in Amendment Log.
+
+---
+
+## Article 1 — Mission
+
+**AutoPost AI transforms a LinkedIn creator's knowledge and goals into
+published, high-performing posts — autonomously, strategically, and
+in their authentic voice.**
+
+Every feature, agent, API, and line of code must serve this mission.
+If it doesn't serve the mission, it doesn't ship.
+
+---
+
+## Article 2 — Core Principles
+
+### 2.1 Voice First
+The user's writing voice is sacred. Every post must pass the
+"could only they have written this?" test. Voice memory is not optional —
+it is the product's foundation and primary differentiator.
+
+### 2.2 Strategy Before Content
+The system always asks *should we post this?* before *how do we write it?*
+No post is generated without a strategic reason: trend data, audience signal,
+and the user's positioning must justify the topic.
+
+### 2.3 Human Approves, Agent Executes
+No post publishes to LinkedIn without explicit human approval.
+Agents research, write, and review. Humans decide.
+Auto-publish without approval is constitutionally prohibited in MVP.
+
+### 2.4 Depth Over Engagement Bait
+All content optimises for LinkedIn's 2026 Depth Score — dwell time and genuine
+engagement. Hooks designed to bait shallow reactions are banned.
+
+### 2.5 Fail Loud, Never Silently
+Every failure — agent, publish, API — surfaces to the user immediately.
+Silent failures are system failures. Every error has a user-visible message
+and a recovery action.
+
+### 2.6 Data Isolation
+Each user's voice memory, persona, and posts are isolated by `user_id`.
+No user's data is ever accessible to, or used for, another user.
+
+### 2.7 Test Before Proceeding (NEW in v2.0)
+No task is considered complete without its smoke test passing.
+No next task starts until the current task's PHR is filed and status is PASS.
+This principle prevents bug accumulation and hallucinated implementations.
+
+---
+
+## Article 3 — Technical Non-Negotiables
+
+Fixed for MVP. Changes require an ADR in `07-decisions/DECISIONS.md`.
+
+| Concern | Choice | Reason |
+|---|---|---|
+| Language | Python 3.11+ | Async-native, OpenAI SDK fit |
+| API framework | FastAPI | Async-first, Pydantic contracts |
+| LLM (writing) | GPT-4o | Best voice instruction-following |
+| LLM (classify/review) | GPT-4o-mini | Cost control on high-frequency tasks |
+| Vector DB | Qdrant | Open source, agent-friendly, self-hostable |
+| Relational DB | PostgreSQL | Schema-enforced, production-grade |
+| Task queue | Celery + Redis | Proven async pipeline |
+| Frontend | Next.js 14 (App Router) | React ecosystem, Vercel-native |
+| Styling | Tailwind CSS + shadcn/ui | Fast, consistent |
+| Design source | Google Stitch | Sufyan's UI templates live here |
+| Auth | NextAuth.js | Handles LinkedIn OAuth cleanly |
+| Deploy (BE) | Railway | Docker-native hosting |
+| Deploy (FE) | Vercel | Native Next.js deployment |
+
+---
+
+## Article 4 — Success Definition
+
+### 4.1 MVP Success Criteria
+The MVP succeeds when a single user can:
+- [ ] Complete persona setup in under 5 minutes
+- [ ] Upload past posts and have voice memory seeded
+- [ ] Generate a post that sounds like them — not generic AI
+- [ ] Approve and schedule from the dashboard
+- [ ] See that post auto-publish to LinkedIn
+- [ ] View basic analytics on post performance
+
+### 4.2 Quality Gates (Non-Negotiable Before Ship)
+- Pipeline completes in under 60 seconds end-to-end
+- Quality score ≥ 70 required before a post can be approved
+- Zero posts publish without user approval
+- LinkedIn OAuth token encrypted at rest — always
+- No PII (personally identifiable information) in any log
+
+### 4.3 Tracked Metrics
+| Metric | Target |
+|---|---|
+| Posts generated (testing) | 20+ |
+| Posts published to real LinkedIn | 5+ |
+| Generation time | < 60s |
+| Average quality score | ≥ 75 |
+| Beta users signed up | 5 |
+
+---
+
+## Article 5 — Explicit Non-Goals (MVP)
+
+Not forgotten. Deferred. Log in `BACKLOG.md`.
+
+- Multi-platform (X, newsletters)
+- Carousel / image generation
+- Team / agency accounts
+- Competitor monitoring
+- Creator Twin / deep identity model
+- Comment auto-reply
+- Billing / subscriptions
+- Mobile app
+- Auto-publish without approval
+
+---
+
+## Article 6 — Security Principles
+
+- LinkedIn tokens: AES-256 encrypted at rest via Fernet. Never plain text.
+- API keys: `.env` only. Never in source code. Never committed.
+- JWT required on all authenticated API routes.
+- Rate limit: max 10 generations per user per day.
+- All DB queries filtered by `user_id` — no cross-user access.
+- Qdrant collections namespaced by `user_id`.
+- No secrets in logs. No tokens in error messages.
+
+---
+
+## Article 7 — Agent Design Rules
+
+1. Every agent has exactly one job.
+2. Every agent has a defined input and output schema (see Contracts).
+3. Every agent system prompt is a stored constant — never built at runtime.
+4. Agents communicate only through structured JSON — never free text.
+5. Every agent has a max retry count. Default: 2. Never infinite.
+6. Every agent failure logs: timestamp, user_id, agent name, input summary, error.
+7. No agent has direct database write access — only through service functions.
+
+---
+
+## Article 8 — Development Process Rules (NEW in v2.0)
+
+These rules govern HOW the system is built, not just what it contains.
+
+### 8.1 Daily Task Cap
+Maximum 5 tasks per day. This is not a guideline — it is a constraint.
+More than 5 tasks per day produces rushed, buggy, untestable work.
+If a task is too large for one day, split it.
+
+### 8.2 Inline Task Verification (ITV)
+Every task has a Smoke Test section.
+The smoke test must be run and pass before the task is marked done.
+Smoke tests are commands, not descriptions.
+Example of a BAD smoke test: "verify it works"
+Example of a GOOD smoke test: `curl -X POST http://localhost:8000/auth/register -d '{"email":"test@test.com","password":"Test123!"}' | jq .`
+
+### 8.3 Progress Health Report (PHR)
+A PHR must be filed after every completed task — not at end of day.
+PHR template is in `08-phr/PHR-TEMPLATE.md`.
+If PHR status is FAIL or PARTIAL, the next task is blocked until resolved.
+
+### 8.4 Integration Checkpoints
+At the end of every day, one integration check runs:
+all tasks completed that day are tested together to verify no regressions.
+This is documented in the day's final PHR.
+
+### 8.5 Frontend-Backend Contract Compliance
+Before implementing any frontend task, verify:
+- The API endpoint it calls exists and is tested (check PHR of that backend task)
+- The request/response shapes match the Contracts document
+Before implementing any backend task, verify:
+- The Contracts document has the schema defined first
+
+### 8.6 No Hallucination Rule
+If you are unsure how a library works, look it up before implementing.
+If a function's behaviour is unclear, write a test first.
+Implement to the spec in Contracts, not to what seems right.
+
+---
+
+## Article 9 — Stitch Design Protocol (NEW in v2.0)
+
+Sufyan has designed frontend UI templates in Google Stitch.
+These designs are the visual spec for all frontend tasks.
+
+Rules:
+1. Before implementing any frontend page, reference the Stitch design.
+2. Component names in code should match component names in Stitch where possible.
+3. If the Stitch design conflicts with the Spec, the Spec wins — log the conflict in PHR.
+4. If the Stitch design adds something not in Spec, add it to BACKLOG unless it's trivial.
+
+---
+
+## Amendment Log
+
+| Version | Date | Change | Reason |
+|---|---|---|---|
+| 1.0 | June 2026 | Initial constitution | Project start |
+| 2.0 | June 2026 | Added Articles 8 & 9: Dev Process + Stitch Protocol. Added ITV, PHR, daily cap rules. | Identified gap: testing deferred to end, causing error accumulation |
