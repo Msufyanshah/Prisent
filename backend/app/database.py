@@ -8,9 +8,14 @@ DATABASE_URL = settings.DATABASE_URL.replace(
     "postgresql://", "postgresql+asyncpg://"
 )
 
+from datetime import datetime, timezone
+
 engine = create_async_engine(DATABASE_URL, echo=settings.ENV == "development")
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 Base = declarative_base()
+
+def get_utc_now():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 async def get_db():
     async with AsyncSessionLocal() as session:

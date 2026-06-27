@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable, Coroutine, Any
 from fastapi import Request, Response, status
 from fastapi.routing import APIRoute
@@ -30,7 +30,7 @@ class EnvelopedRoute(APIRoute):
                             "success": True,
                             "data": data,
                             "error": None,
-                            "timestamp": datetime.utcnow().isoformat()
+                            "timestamp": datetime.now(timezone.utc).isoformat()
                         }
                     headers = dict(response.headers)
                     headers.pop("content-length", None)
@@ -73,11 +73,30 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
                 "code": code,
                 "message": message
             },
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
     )
 
+def sanitize_validation_errors(errors: list) -> list:
+    sanitized = []
+    for err in errors:
+        new_err = {}
+        for k, v in err.items():
+            if k == "ctx" and isinstance(v, dict):
+                new_ctx = {}
+                for ctx_k, ctx_v in v.items():
+                    if isinstance(ctx_v, Exception):
+                        new_ctx[ctx_k] = str(ctx_v)
+                    else:
+                        new_ctx[ctx_k] = ctx_v
+                new_err[k] = new_ctx
+            else:
+                new_err[k] = v
+        sanitized.append(new_err)
+    return sanitized
+
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    sanitized = sanitize_validation_errors(exc.errors())
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
@@ -85,8 +104,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "data": None,
             "error": {
                 "code": "VALIDATION_ERROR",
-                "message": exc.errors()
+                "message": sanitized
             },
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
     )

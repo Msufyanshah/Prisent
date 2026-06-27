@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, DateTime, Text, Integer, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
-from app.database import Base
+from app.database import Base, get_utc_now
 
 class Post(Base):
     __tablename__ = "posts"
@@ -24,5 +24,5 @@ class Post(Base):
     comments = Column(Integer, default=0)
     reposts = Column(Integer, default=0)
     failure_reason = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=get_utc_now, nullable=False)
+    updated_at = Column(DateTime, default=get_utc_now, onupdate=get_utc_now)

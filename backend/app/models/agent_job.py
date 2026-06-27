@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, DateTime, Text, Integer, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from app.database import Base
+from app.database import Base, get_utc_now
 
 class AgentJob(Base):
     __tablename__ = "agent_jobs"
@@ -18,5 +18,5 @@ class AgentJob(Base):
     quality_score = Column(Integer, nullable=True)
     retries = Column(Integer, default=0)
     error = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=get_utc_now, nullable=False)
     completed_at = Column(DateTime, nullable=True)

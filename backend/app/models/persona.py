@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, DateTime, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
-from app.database import Base
+from app.database import Base, get_utc_now
 
 class Persona(Base):
     __tablename__ = "personas"
@@ -19,4 +19,4 @@ class Persona(Base):
     posting_frequency = Column(String(20), nullable=False)         # daily|3x_week|2x_week|weekly
     avoid_topics = Column(ARRAY(String), nullable=True, default=[])
     unique_differentiator = Column(Text, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=get_utc_now, onupdate=get_utc_now)
