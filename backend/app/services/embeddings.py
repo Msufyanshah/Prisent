@@ -19,7 +19,7 @@ async def embed_text(text: str) -> list[float]:
         raise EmbeddingError("Cannot embed empty text")
 
     # Local mock fallback for testing without real OpenAI Key
-    if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY.startswith("mock") or settings.OPENAI_API_KEY == "sk-...":
+    if settings.USE_MOCK_EMBEDDINGS:
         h = hashlib.md5(text.encode("utf-8")).hexdigest()
         seed = int(h, 16) % (2**32)
         rng = random.Random(seed)
@@ -46,7 +46,7 @@ async def embed_batch(texts: list[str]) -> list[list[float]]:
         return []
 
     # Local mock fallback
-    if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY.startswith("mock") or settings.OPENAI_API_KEY == "sk-...":
+    if settings.USE_MOCK_EMBEDDINGS:
         vectors = []
         for t in texts:
             h = hashlib.md5(t.encode("utf-8")).hexdigest()

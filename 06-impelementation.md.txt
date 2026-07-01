@@ -264,13 +264,13 @@ Format:
 
 | Entry | Date | What was built | Deviations | Blockers |
 |---|---|---|---|---|
-| D1 | — | — | — | — |
-| D2 | — | — | — | — |
-| D3 | — | — | — | — |
-| D4 | — | — | — | — |
-| D5 | — | — | — | — |
-| D6 | — | — | — | — |
-| D7 | — | — | — | — |
+| D1 | June 27 | Project Setup & Auth | None | None |
+| D2 | June 27 | Qdrant Setup & Voice Memory | None | None |
+| D3 | June 27 | Persona CRUD & Rate Limiting | None | None |
+| D4 | June 28 | Multi-Agent pipeline, Writer Agent | TASK-011 renamed to Persona Notes Auto-Embedding | None |
+| D5 | June 28 | Reviewer Agent, Celery orchestration | Offline embeddings hashing fallback added | None |
+| D6 | June 30 | LinkedIn OAuth & Token Security | Valid Fernet key generation, Redis state store | None |
+| D7 | June 30 | UGC Publisher & Celery Beat Scheduler | Async event loop test executor bypass | None |
 | D8 | — | — | — | — |
 | D9 | — | — | — | — |
 | D10 | — | — | — | — |
@@ -295,6 +295,10 @@ Any divergence requires an explanation and a Contracts/Spec update.
 
 | Task | Spec Reference | Implemented As | Divergence? | Notes |
 |---|---|---|---|---|
-| TASK-013 | Spec 3.3, Contract A2 | — | — | — |
-| TASK-014 | Contract A3 | — | — | — |
-| TASK-015 | Spec 3.2 | — | — | — |
+| TASK-011 | Plan Day 3 | Persona Notes Auto-Embedding | Yes (renamed) | Clarified actual technical deliverables scope. |
+| TASK-020 | Plan Day 8 | Valid url-safe Fernet Encryption Key | Yes (modified key) | Gated with regenerated url-safe base64-encoded key. |
+| TASK-021 | Plan Day 8 | Redis OAuth CSRF state store | Yes (Redesigned store) | Removed in-memory state dictionary to survive worker restarts. |
+| TASK-022 | Plan Day 8 | Timezone-aware UTC datetimes comparison | Yes (warning fix) | Swapped UTC naive comparisons with UTC aware properties. |
+| TASK-007 | Plan Day 2 | Gated mock embeddings logic | Yes (gated fallback) | Implemented USE_MOCK_EMBEDDINGS config gate to prevent silent failures in production. |
+| TASK-025 | Plan Day 9 | Direct async execution runner bypass | Yes (async test workaround) | Executed async scheduler tasks directly in tests to bypass event loop thread deadlock. |
+

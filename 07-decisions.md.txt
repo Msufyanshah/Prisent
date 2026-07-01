@@ -233,6 +233,48 @@ Auto-publishing without approval is prohibited in MVP (Constitution Article 2, P
 | ADR-005 | Railway + Vercel for deployment | June 2026 | accepted |
 | ADR-006 | Fernet encryption for LinkedIn tokens | June 2026 | accepted |
 | ADR-007 | Human approval required before publish | June 2026 | accepted |
+| ADR-008 | Rename TASK-011 to Persona Notes Auto-Embedding | July 2026 | accepted |
+| ADR-009 | Gate Offline Embeddings Fallback behind USE_MOCK_EMBEDDINGS | July 2026 | accepted |
+| ADR-010 | Store OAuth CSRF State in Redis Instead of Memory | July 2026 | accepted |
+
+---
+
+## ADR-008 — Rename TASK-011 to Persona Notes Auto-Embedding
+
+**Date:** July 2026
+**Status:** accepted
+
+**Context:**
+The original name for TASK-011 was "Prompt Compiler Service". However, the actual implementation focused on generating and storing vector embeddings of the creator's persona notes automatically upon saving.
+
+**Decision:**
+Renamed the task to "Persona Notes Auto-Embedding" to reflect its real technical scope.
+
+---
+
+## ADR-009 — Gate Offline Embeddings Fallback Behind USE_MOCK_EMBEDDINGS
+
+**Date:** July 2026
+**Status:** accepted
+
+**Context:**
+An offline deterministic hashing fallback was added to `embeddings.py` to allow local testing when OpenAI API keys are not set. However, a silent fallback presents a production risk where fake vectors could be generated and saved silently without error.
+
+**Decision:**
+Gated the local fallback behind a configuration setting `USE_MOCK_EMBEDDINGS: bool = False`. It is explicitly disabled by default and can only be active in local development.
+
+---
+
+## ADR-010 — Store OAuth CSRF State in Redis Instead of Memory
+
+**Date:** July 2026
+**Status:** accepted
+
+**Context:**
+The initial Connect + Callback flow saved OAuth CSRF states in a local dictionary variable `_state_store`. If Railway runs multiple worker processes or restarts, this state is wiped, resulting in connection failure.
+
+**Decision:**
+Moved the CSRF state store to Redis using a prefix key `oauth_state:{state}` with a 10-minute (600s) TTL.
 
 ---
 
