@@ -4,6 +4,9 @@ from app.config import settings
 from app.routes.health import router as health_router
 from app.routes.auth import router as auth_router
 from app.routes.persona import router as persona_router
+from app.routes.generate import router as generate_router
+from app.routes.linkedin_auth import router as linkedin_auth_router
+from app.routes.posts import router as posts_router
 from app.utils.envelope import http_exception_handler, validation_exception_handler
 from fastapi.exceptions import RequestValidationError, HTTPException
 
@@ -27,6 +30,9 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(persona_router)
+app.include_router(generate_router)
+app.include_router(linkedin_auth_router)
+app.include_router(posts_router)
 
 @app.get("/")
 async def root():

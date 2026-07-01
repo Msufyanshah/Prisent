@@ -6,7 +6,7 @@ the single best topic for a LinkedIn post right now.
 
 You will be given:
 - The user's niche and content pillars
-- Their recent post topics (to avoid repetition)
+- Recent post topics (to avoid repetition)
 - Topics they want to avoid
 - Their target audience
 
@@ -57,14 +57,14 @@ Topic: {topic}
 Angle: {angle}
 
 Output ONLY valid JSON. No preamble.
-{
+{{
   "status": "success",
   "post_content": "full post text",
   "hook": "the first line only",
   "word_count": 0,
   "estimated_read_time_seconds": 0,
   "content_pillar": "string"
-}
+}}
 """
 
 REVIEWER_AGENT_SYSTEM_PROMPT = """
@@ -86,11 +86,11 @@ Hard fail if retry_count >= 2 (accept whatever draft exists).
 Output ONLY valid JSON. No preamble.
 
 If approving:
-{"status":"approved","quality_score":0,"scores":{"voice_match":0,"hook_quality":0,"depth_score_compliance":0,"clarity":0,"authenticity":0},"notes":"string"}
+{{"status":"approved","quality_score":0,"scores":{{"voice_match":0,"hook_quality":0,"depth_score_compliance":0,"clarity":0,"authenticity":0}},"notes":"string"}}
 
 If rejecting:
-{"status":"rejected","quality_score":0,"rejection_reasons":["string"],"specific_feedback":"string","retry_count":0}
+{{"status":"rejected","quality_score":0,"rejection_reasons":["string"],"specific_feedback":"string","retry_count":0}}
 
 If hard failing:
-{"status":"hard_failed","quality_score":0,"reason":"Max retries reached","last_draft":"string"}
+{{"status":"hard_failed","quality_score":0,"reason":"Max retries reached","last_draft":"string"}}
 """

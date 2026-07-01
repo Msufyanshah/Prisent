@@ -37,3 +37,11 @@ async def get_generation_count(user_id: str) -> int:
     count = await r.get(key)
     await r.aclose()
     return int(count) if count else 0
+
+async def decrement_generation_count(user_id: str):
+    """Decrement the generation count (e.g. if validation fails)."""
+    r = await get_redis()
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    key = f"gen_limit:{user_id}:{today}"
+    await r.decr(key)
+    await r.aclose()
