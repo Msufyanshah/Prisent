@@ -1,4 +1,4 @@
-# PLAN — AutoPost AI
+# PLAN — Prisent AI
 
 > Version: 1.0 | Status: Active | Last updated: June 2026
 > This document defines when we build what.

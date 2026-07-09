@@ -1,4 +1,4 @@
-# IMPLEMENTATION — AutoPost AI
+# IMPLEMENTATION — Prisent AI
 
 > Version: 1.0 | Status: Active | Last updated: June 2026
 > This document maps implementation to spec.
@@ -18,7 +18,7 @@
 ## Folder Structure
 
 ```
-autopost-ai/
+Prisent/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py               # FastAPI entry, router registration, CORS

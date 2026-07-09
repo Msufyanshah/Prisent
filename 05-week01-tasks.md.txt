@@ -1,4 +1,4 @@
-# TASKS — AutoPost AI v2.0
+# TASKS — Prisent AI v2.0
 
 > Version: 2.0 | Status: Active | Last updated: June 2026
 
@@ -50,7 +50,7 @@ causes confusion for both human and AI collaborators throughout the build.
 
 **FILES TO CREATE:**
 ```
-autopost-ai/
+Prisent/
 ├── backend/
 │   └── README.md
 ├── frontend/
@@ -62,15 +62,15 @@ autopost-ai/
 
 **HOW:**
 ```bash
-# Step 1: Create repo on GitHub (via UI) named "autopost-ai"
+# Step 1: Create repo on GitHub (via UI) named "Prisent"
 # Step 2: Clone it locally
-git clone https://github.com/YOUR_USERNAME/autopost-ai.git
-cd autopost-ai
+git clone https://github.com/YOUR_USERNAME/Prisent.git
+cd Prisent
 
 # Step 3: Create structure
 mkdir -p backend frontend
-echo "# AutoPost AI Backend" > backend/README.md
-echo "# AutoPost AI Frontend" > frontend/README.md
+echo "# Prisent AI Backend" > backend/README.md
+echo "# Prisent AI Frontend" > frontend/README.md
 
 # Step 4: Create .gitignore
 cat > .gitignore << 'EOF'
@@ -177,7 +177,7 @@ from app.config import settings
 from app.routes.health import router as health_router
 
 app = FastAPI(
-    title="AutoPost AI",
+    title="Prisent AI",
     version="1.0.0",
     description="Autonomous LinkedIn post generator"
 )
@@ -194,7 +194,7 @@ app.include_router(health_router)
 
 @app.on_event("startup")
 async def startup():
-    print(f"AutoPost AI starting — env: {settings.ENV}")
+    print(f"Prisent AI starting — env: {settings.ENV}")
 ```
 
 ```python
@@ -231,14 +231,14 @@ router = APIRouter(prefix="/health", tags=["health"])
 
 @router.get("")
 async def health_check():
-    return {"status": "ok", "service": "autopost-ai"}
+    return {"status": "ok", "service": "prisent"}
 ```
 
 ```
 # backend/.env.example
 ENV=development
 SECRET_KEY=your-secret-key-here-change-in-production
-DATABASE_URL=postgresql://postgres:password@localhost:5432/autopost
+DATABASE_URL=postgresql://postgres:password@localhost:5432/prisent
 REDIS_URL=redis://localhost:6379/0
 OPENAI_API_KEY=sk-...
 QDRANT_URL=http://localhost:6333
@@ -292,10 +292,10 @@ sleep 2
 
 # Test 1: Server is running
 curl http://localhost:8000/health
-# Expected: {"status":"ok","service":"autopost-ai"}
+# Expected: {"status":"ok","service":"prisent"}
 
 # Test 2: OpenAPI docs load
-curl -s http://localhost:8000/docs | grep -c "AutoPost AI"
+curl -s http://localhost:8000/docs | grep -c "Prisent AI"
 # Expected: 1 or more
 
 # Test 3: Unknown route returns 404 not 500
@@ -337,11 +337,11 @@ version: "3.9"
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: autopost_postgres
+    container_name: prisent_postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: autopost
+      POSTGRES_DB: prisent
     ports:
       - "5432:5432"
     volumes:
@@ -354,7 +354,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: autopost_redis
+    container_name: prisent_redis
     ports:
       - "6379:6379"
     healthcheck:
@@ -365,7 +365,7 @@ services:
 
   qdrant:
     image: qdrant/qdrant:latest
-    container_name: autopost_qdrant
+    container_name: prisent_qdrant
     ports:
       - "6333:6333"
       - "6334:6334"
@@ -405,11 +405,11 @@ docker-compose up -d
 sleep 10   # Wait for health checks
 
 # Test 1: PostgreSQL
-docker exec autopost_postgres pg_isready -U postgres
+docker exec prisent_postgres pg_isready -U postgres
 # Expected: /var/run/postgresql:5432 - accepting connections
 
 # Test 2: Redis
-docker exec autopost_redis redis-cli ping
+docker exec prisent_redis redis-cli ping
 # Expected: PONG
 
 # Test 3: Qdrant
@@ -419,7 +419,7 @@ curl http://localhost:6333/health
 # Test 4: Connect from Python
 python -c "
 import psycopg2
-conn = psycopg2.connect('postgresql://postgres:password@localhost:5432/autopost')
+conn = psycopg2.connect('postgresql://postgres:password@localhost:5432/prisent')
 print('PostgreSQL OK:', conn.server_version)
 conn.close()
 "
@@ -621,7 +621,7 @@ alembic upgrade head
 # Test 2: All tables exist
 python -c "
 import psycopg2
-conn = psycopg2.connect('postgresql://postgres:password@localhost:5432/autopost')
+conn = psycopg2.connect('postgresql://postgres:password@localhost:5432/prisent')
 cur = conn.cursor()
 cur.execute(\"SELECT tablename FROM pg_tables WHERE schemaname='public'\")
 tables = [r[0] for r in cur.fetchall()]
@@ -813,25 +813,25 @@ sleep 2
 # Test 1: Register new user
 curl -s -X POST http://localhost:8000/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@autopost.ai","password":"Test1234!","name":"Test User"}' | jq .
+  -d '{"email":"test@prisent.ai","password":"Test1234!","name":"Test User"}' | jq .
 # Expected: {"user_id":"...","token":"eyJ...","name":"Test User"}
 
 # Test 2: Duplicate email is rejected
 curl -s -X POST http://localhost:8000/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@autopost.ai","password":"Test1234!","name":"Test User"}' | jq .error
+  -d '{"email":"test@prisent.ai","password":"Test1234!","name":"Test User"}' | jq .error
 # Expected: {"code":"EMAIL_TAKEN","message":"Email already registered"}
 
 # Test 3: Login works
 curl -s -X POST http://localhost:8000/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@autopost.ai","password":"Test1234!"}' | jq .token
+  -d '{"email":"test@prisent.ai","password":"Test1234!"}' | jq .token
 # Expected: "eyJ..." (a JWT string)
 
 # Test 4: Wrong password is rejected
 curl -s -X POST http://localhost:8000/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@autopost.ai","password":"wrongpassword"}' | jq .detail.code
+  -d '{"email":"test@prisent.ai","password":"wrongpassword"}' | jq .detail.code
 # Expected: "INVALID_CREDENTIALS"
 
 pkill -f uvicorn
@@ -925,7 +925,7 @@ from app.services.qdrant_setup import create_collections
 @app.on_event("startup")
 async def startup():
     create_collections()
-    print(f"AutoPost AI starting — env: {settings.ENV}")
+    print(f"Prisent AI starting — env: {settings.ENV}")
 ```
 
 **SMOKE TEST:**
@@ -1355,7 +1355,7 @@ sleep 2
 # Get a token first
 TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@autopost.ai","password":"Test1234!"}' | jq -r .token)
+  -d '{"email":"test@prisent.ai","password":"Test1234!"}' | jq -r .token)
 
 # Test 1: Seed 5 posts
 curl -s -X POST http://localhost:8000/persona/seed-posts \
@@ -1402,7 +1402,7 @@ After TASK-009: Verify the voice memory pipeline end-to-end.
 # Register → Login → Seed Posts → Search Memory
 TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@autopost.ai","password":"Test1234!"}' | jq -r .token)
+  -d '{"email":"test@prisent.ai","password":"Test1234!"}' | jq -r .token)
 
 curl -s -X POST http://localhost:8000/persona/seed-posts \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
@@ -1542,7 +1542,7 @@ async def create_or_update_persona(
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@autopost.ai","password":"Test1234!"}' | jq -r .token)
+  -d '{"email":"test@prisent.ai","password":"Test1234!"}' | jq -r .token)
 
 # Test 1: Create persona
 curl -s -X POST http://localhost:8000/persona \
@@ -1996,7 +1996,7 @@ Record: agent response time, topic quality (your honest assessment), tool calls 
 # Persona setup + seed posts + persona embedding — full flow
 TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@autopost.ai","password":"Test1234!"}' | jq -r .token)
+  -d '{"email":"test@prisent.ai","password":"Test1234!"}' | jq -r .token)
 
 # Create persona
 curl -s -X POST http://localhost:8000/persona \

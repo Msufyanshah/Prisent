@@ -11,7 +11,7 @@ from app.utils.envelope import http_exception_handler, validation_exception_hand
 from fastapi.exceptions import RequestValidationError, HTTPException
 
 app = FastAPI(
-    title="AutoPost AI",
+    title="Prisent AI",
     version="1.0.0",
     description="Autonomous LinkedIn post generator"
 )
@@ -36,11 +36,11 @@ app.include_router(posts_router)
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to AutoPost AI API"}
+    return {"message": "Welcome to Prisent AI API"}
 
 from app.services.qdrant_setup import create_collections
 
 @app.on_event("startup")
 async def startup():
     create_collections()
-    print(f"AutoPost AI starting — env: {settings.ENV}")
+    print(f"Prisent AI starting — env: {settings.ENV}")

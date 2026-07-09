@@ -82,7 +82,7 @@ async def test_seed_posts_endpoint():
     async with httpx.AsyncClient(base_url="http://localhost:8000") as client:
         import uuid
         uid = str(uuid.uuid4())[:8]
-        email = f"seed_{uid}@autopost.ai"
+        email = f"seed_{uid}@prisent.ai"
         
         # 1. Register
         r = await client.post("/auth/register", json={"email": email, "password": "Check1234!", "name": "Seeder"})

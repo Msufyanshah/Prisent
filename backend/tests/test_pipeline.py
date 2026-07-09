@@ -14,7 +14,7 @@ async def run_pipeline_tests():
     await asyncio.sleep(3)
     async with httpx.AsyncClient(base_url="http://localhost:8000", timeout=30.0) as client:
         unique_id = str(uuid.uuid4())[:8]
-        email = f"pipeline_{unique_id}@autopost.ai"
+        email = f"pipeline_{unique_id}@prisent.ai"
         password = "Test1234!"
         
         print("1. Registering test user...")

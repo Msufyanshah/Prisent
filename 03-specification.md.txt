@@ -1,14 +1,14 @@
-# SPECIFICATION — AutoPost AI
+# SPECIFICATION — Prisent AI
 
 > Version: 1.0 | Status: Active | Last updated: June 2026
-> This document describes what AutoPost AI does.
+> This document describes what Prisent AI does.
 > For WHY it does it → Constitution. For HOW interfaces work → Contracts.
 
 ---
 
 ## 1. System Overview
 
-AutoPost AI is an agentic LinkedIn post generator with five functional areas:
+Prisent AI is an agentic LinkedIn post generator with five functional areas:
 
 ```
 Onboarding → Generation → Review → Publishing → Analytics

@@ -1,4 +1,4 @@
-# DECISIONS — AutoPost AI
+# DECISIONS — Prisent AI
 
 > Version: 1.0 | Status: Active | Last updated: June 2026
 > This document records every significant architecture decision made during the build.
@@ -201,7 +201,7 @@ Python `cryptography` library Fernet implementation. Key stored in `.env` as `EN
 **Status:** accepted
 
 **Context:**
-AutoPost AI could technically be built to publish posts fully autonomously
+Prisent AI could technically be built to publish posts fully autonomously
 without any human review. This would be the most "agentic" approach.
 
 **Decision:**

@@ -1,14 +1,14 @@
-# CONSTITUTION — AutoPost AI
+# CONSTITUTION — Prisent AI
 
 > Version: 2.0 | Status: Active | Amended: June 2026
-> Supreme law of AutoPost AI. All specs, contracts, tasks, and code derive from this.
+> Supreme law of Prisent AI. All specs, contracts, tasks, and code derive from this.
 > To amend: state the reason, increment the version, log in Amendment Log.
 
 ---
 
 ## Article 1 — Mission
 
-**AutoPost AI transforms a LinkedIn creator's knowledge and goals into
+**Prisent AI transforms a LinkedIn creator's knowledge and goals into
 published, high-performing posts — autonomously, strategically, and
 in their authentic voice.**
 

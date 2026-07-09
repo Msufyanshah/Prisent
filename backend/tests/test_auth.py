@@ -7,7 +7,7 @@ def run_tests():
     # Use a unique email for every test run
     import uuid
     unique_id = str(uuid.uuid4())[:8]
-    email = f"test_{unique_id}@autopost.ai"
+    email = f"test_{unique_id}@prisent.ai"
 
     # Test 1: Register new user
     print("Test 1: Register new user...")

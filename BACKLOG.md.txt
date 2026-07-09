@@ -1,4 +1,4 @@
-# BACKLOG — AutoPost AI
+# BACKLOG — Prisent AI
 
 > Ideas that came up during the build but are NOT in MVP scope.
 > Rule: Do not touch anything here until Day 22.

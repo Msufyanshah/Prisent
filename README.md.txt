@@ -1,4 +1,4 @@
-# AutoPost AI — SpecKit-Plus v2.0
+# Prisent AI — SpecKit-Plus v2.0
 
 > Spec-driven, AI-native development system.
 > Version: 2.0 | Upgraded: June 2026

@@ -1,7 +1,7 @@
-# CONTRACTS — AutoPost AI
+# CONTRACTS — Prisent AI
 
 > Version: 1.0 | Status: Active | Last updated: June 2026
-> This document defines every interface in AutoPost AI.
+> This document defines every interface in Prisent AI.
 > If an agent, API, or service makes a promise — it is written here.
 > Breaking a contract without updating this document is a bug, not a feature.
 
@@ -9,7 +9,7 @@
 
 ## Part A — Agent Contracts
 
-Every agent in AutoPost AI has a fixed input and output contract.
+Every agent in Prisent AI has a fixed input and output contract.
 Agents communicate only through these schemas — never free text.
 
 ---

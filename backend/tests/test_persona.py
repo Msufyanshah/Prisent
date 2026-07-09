@@ -14,7 +14,7 @@ async def test_persona_flow():
     async with httpx.AsyncClient(base_url="http://localhost:8000") as client:
         import uuid
         uid = str(uuid.uuid4())[:8]
-        email = f"persona_{uid}@autopost.ai"
+        email = f"persona_{uid}@prisent.ai"
         
         print("Registering user...")
         r = await client.post("/auth/register", json={"email": email, "password": "Check1234!", "name": "Creator"})
