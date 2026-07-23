@@ -1,6 +1,20 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-background: #09090B;
+  --color-surface: #18181B;
+  --color-border-muted: #27272A;
+  --color-text-primary: #FAFAFA;
+  --color-text-muted: #A1A1AA;
+  --color-accent: #D97706;
+  --color-accent-hover: #B45309;
+  --color-success: #16A34A;
+  --color-warning: #CA8A04;
+  --color-danger: #DC2626;
+  
+  --radius-interactive: 4px;
+  --radius-container: 6px;
+}
 
 @layer base {
   body {
