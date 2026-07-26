@@ -3,6 +3,8 @@ from qdrant_client.models import Distance, VectorParams
 from app.config import settings
 
 def get_qdrant_client() -> QdrantClient:
+    if settings.QDRANT_URL == ":memory:":
+        return QdrantClient(":memory:")
     return QdrantClient(
         url=settings.QDRANT_URL,
         api_key=settings.QDRANT_API_KEY or None
