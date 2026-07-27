@@ -43,12 +43,12 @@ export default function DashboardHome() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      {/* Left panel - Main Workspace Canvas */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+    <div className="max-w-4xl mx-auto p-8 space-y-6">
+      {/* Header Block with title and aligned generate button */}
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-medium tracking-tight">Welcome back, Alex</h1>
-          <p className="text-sm text-textMuted font-mono">
+          <h1 className="text-2xl font-medium tracking-tight text-text-primary">Welcome back, Alex</h1>
+          <p className="text-sm text-text-muted font-mono mt-1">
             {job?.status === "done" ? "• [SUCCESS] Post generated" : "• [READY] Standing by for input."}
           </p>
         </div>
@@ -62,53 +62,38 @@ export default function DashboardHome() {
             {polling ? "Generating today's post..." : "Generate today's post"}
           </button>
         </div>
-
-        {job?.status === "done" && (
-          <div className="border border-borderMuted bg-surface rounded-container overflow-hidden">
-            <div className="flex justify-between items-center bg-[#1F1F23]/45 px-4 py-3 border-b border-borderMuted">
-              <span className="text-xs font-mono font-medium tracking-wider text-textMuted uppercase">LINKEDIN</span>
-              <span className="text-xs font-mono font-semibold text-accent uppercase">QUALITY SCORE 94</span>
-            </div>
-            <div className="p-4 space-y-4">
-              <p className="text-sm text-textPrimary/95 leading-relaxed font-sans">
-                The future of B2B SaaS isn't just about adding AI features. It's about fundamentally restructuring execution layers to be AI-native from day one. When your infrastructure is built for autonomous agent interaction, the velocity of deployment shifts from weeks to minutes. Here's a technical breakdown of how we engineered the new execution
-              </p>
-              <div className="flex justify-between items-center pt-2">
-                <button
-                  onClick={() => navigator.clipboard.writeText("The future of B2B SaaS isn't just about adding AI features...")}
-                  className="text-xs text-textMuted hover:text-accent font-mono"
-                >
-                  [Copy to Clipboard]
-                </button>
-                <Link href="/dashboard/posts" className="text-xs text-accent hover:underline font-mono">
-                  [View all drafts →]
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {error && (
-          <div className="text-xs text-danger font-mono border border-danger/25 bg-danger/5 p-2 rounded-interactive">
-            [ERR] {error}
-          </div>
-        )}
       </div>
 
-      {/* Right panel - Fixed 380px Live Telemetry Terminal */}
-      <div className="w-[380px] shrink-0 border-l border-borderMuted bg-[#09090B] flex flex-col h-full">
-        <div className="p-4 border-b border-borderMuted bg-surface flex justify-between items-center">
-          <span className="text-xs font-mono font-medium tracking-wider text-textMuted uppercase">SYSTEM TELEMETRY LOGS</span>
-          <span className={`h-2 w-2 rounded-full ${polling ? "bg-accent animate-pulse" : "bg-success"}`} />
-        </div>
-        <div className="flex-1 overflow-y-auto p-4 font-mono text-xs text-textPrimary/80 space-y-2 selection:bg-accent/30">
-          {terminalLogs.map((log, index) => (
-            <div key={index} className="leading-relaxed break-all">
-              {log}
+      {job?.status === "done" && (
+        <div className="border border-border-muted bg-surface rounded-container overflow-hidden max-w-3xl">
+          <div className="flex justify-between items-center bg-[#18181B] px-4 py-3 border-b border-border-muted">
+            <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-[#27272A] text-[#FAFAFA] tracking-wide">LINKEDIN</span>
+            <span className="text-xs font-mono font-medium text-text-muted">QUALITY SCORE <span className="text-[#FAFAFA] font-bold">94</span></span>
+          </div>
+          <div className="p-4 space-y-4 bg-surface">
+            <p className="text-sm text-text-primary/95 leading-relaxed font-sans">
+              The future of B2B SaaS isn't just about adding AI features. It's about fundamentally restructuring execution layers to be AI-native from day one. When your infrastructure is built for autonomous agent interaction, the velocity of deployment shifts from weeks to minutes. Here's a technical breakdown of how we engineered the new execution
+            </p>
+            <div className="flex justify-between items-center pt-2">
+              <button
+                onClick={() => navigator.clipboard.writeText("The future of B2B SaaS isn't just about adding AI features...")}
+                className="text-xs text-text-muted hover:text-accent font-mono"
+              >
+                [Copy to Clipboard]
+              </button>
+              <Link href="/dashboard/posts" className="text-xs text-accent hover:underline font-mono">
+                [View all drafts →]
+              </Link>
             </div>
-          ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {error && (
+        <div className="text-xs text-danger font-mono border border-danger/25 bg-danger/5 p-2 rounded-interactive">
+          [ERR] {error}
+        </div>
+      )}
     </div>
   );
 }

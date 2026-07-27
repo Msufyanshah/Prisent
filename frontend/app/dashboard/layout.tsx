@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { clearToken } from "@/lib/api";
 import { PrisentIcon } from "@/components/PrisentIcon";
-import { Home, FileText, BarChart3, Settings } from "lucide-react";
+import { Home, FileText, BarChart3, Settings, Bell, HelpCircle, User, LogOut, PanelLeftClose } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Home", Icon: Home },
@@ -42,9 +42,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           padding: "24px 0",
         }}
       >
-        <div style={{ padding: "0 24px 24px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 24px 24px" }}>
           {/* Prisent "P" icon glyph — flat, no background tile */}
           <PrisentIcon size={24} color="#FAFAFA" />
+          <button
+            style={{
+              background: "none",
+              border: "none",
+              color: "#A1A1AA",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 4,
+              borderRadius: 4,
+            }}
+            className="hover:bg-[#1F1F23] hover:text-[#FAFAFA] transition-colors"
+          >
+            <PanelLeftClose size={18} strokeWidth={1.5} />
+          </button>
         </div>
 
         <nav style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 12px", flex: 1 }}>
@@ -91,7 +107,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               padding: "0 16px",
               borderRadius: 4,
               fontSize: 15,
-              color: logoutHovered ? "#D97706" : "#A1A1AA",
+              color: logoutHovered ? "#FAFAFA" : "#A1A1AA",
               background: logoutHovered ? "#1F1F23" : "transparent",
               border: "none",
               cursor: "pointer",
@@ -99,15 +115,80 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               transition: "background 150ms, color 150ms",
             }}
           >
-            <PrisentIcon size={18} color={logoutHovered ? "#D97706" : "#A1A1AA"} />
-            <span>Log out</span>
+            <LogOut size={18} strokeWidth={1.5} />
+            <span>Logout</span>
           </button>
         </div>
       </aside>
 
       {/* Main dashboard content view */}
-      <main style={{ flex: 1, background: "#09090B", color: "#FAFAFA" }}>
-        {children}
+      <main style={{ flex: 1, display: "flex", flexDirection: "column", background: "#09090B", color: "#FAFAFA" }}>
+        {/* Top Navbar */}
+        <header
+          style={{
+            height: 56,
+            borderBottom: "1px solid #27272A",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            padding: "0 24px",
+            gap: 16,
+            background: "#09090B",
+          }}
+        >
+          <button
+            style={{
+              background: "none",
+              border: "none",
+              color: "#A1A1AA",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 4,
+              borderRadius: 4,
+            }}
+            className="hover:bg-[#18181B] hover:text-[#FAFAFA] transition-colors"
+          >
+            <Bell size={18} strokeWidth={1.5} />
+          </button>
+          <button
+            style={{
+              background: "none",
+              border: "none",
+              color: "#A1A1AA",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 4,
+              borderRadius: 4,
+            }}
+            className="hover:bg-[#18181B] hover:text-[#FAFAFA] transition-colors"
+          >
+            <HelpCircle size={18} strokeWidth={1.5} />
+          </button>
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              background: "#27272A",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#A1A1AA",
+              cursor: "pointer",
+            }}
+            className="hover:bg-[#3F3F46] hover:text-[#FAFAFA] transition-colors"
+          >
+            <User size={14} strokeWidth={1.5} />
+          </div>
+        </header>
+
+        <div style={{ flex: 1, overflowY: "auto" }}>
+          {children}
+        </div>
       </main>
     </div>
   );
