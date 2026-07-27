@@ -1,7 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Text, Integer, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import Column, String, DateTime, Text, Integer, ForeignKey, UUID, JSON
 from app.database import Base, get_utc_now
 
 class AgentJob(Base):
@@ -12,7 +11,7 @@ class AgentJob(Base):
     status = Column(String(20), nullable=False, default="pending")
     # pending|researching|writing|reviewing|done|failed
     progress_message = Column(String(255), nullable=True)
-    research_output = Column(JSONB, nullable=True)
+    research_output = Column(JSON, nullable=True)
     draft_content = Column(Text, nullable=True)
     review_notes = Column(Text, nullable=True)
     quality_score = Column(Integer, nullable=True)

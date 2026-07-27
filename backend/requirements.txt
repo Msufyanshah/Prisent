@@ -19,4 +19,6 @@ cryptography==42.0.7
 python-dotenv==1.0.1
 pydantic-extra-types==2.6.0
 email-validator
+aiosqlite
+
 
