@@ -47,10 +47,20 @@ export default function DashboardHome() {
       {/* Header Block with title and aligned generate button */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-medium tracking-tight text-text-primary">Welcome back, Alex</h1>
-          <p className="text-sm text-text-muted font-mono mt-1">
-            {job?.status === "done" ? "• [SUCCESS] Post generated" : "• [READY] Standing by for input."}
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight text-text-primary">Welcome back, Alex</h1>
+          <div className="text-sm font-mono mt-2 flex items-center gap-2">
+            {job?.status === "done" ? (
+              <>
+                <span className="h-2 w-2 rounded-full bg-success" />
+                <span className="text-text-muted font-medium">[SUCCESS] Post generated</span>
+              </>
+            ) : (
+              <>
+                <span className="h-2 w-2 rounded-full bg-accent" />
+                <span className="text-text-muted font-medium">[READY] Standing by for input.</span>
+              </>
+            )}
+          </div>
         </div>
 
         <div>
