@@ -67,7 +67,7 @@ export default function DashboardHome() {
           <button
             onClick={handleGenerate}
             disabled={polling}
-            className="rounded-[4px] bg-accent px-4 py-2 text-sm font-medium text-background hover:bg-accent-hover transition-colors disabled:opacity-40"
+            className="rounded-[4px] bg-gradient-to-r from-[#ea580c] to-[#fbbf24] hover:from-[#d97706] hover:to-[#f59e0b] px-4 py-2 text-sm font-semibold text-background shadow-md transition-all duration-300 disabled:opacity-40"
           >
             {polling ? "Generating today's post..." : "Generate today's post"}
           </button>
