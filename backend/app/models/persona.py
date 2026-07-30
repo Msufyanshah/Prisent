@@ -1,7 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID, ARRAY
+from sqlalchemy import Column, String, DateTime, Text, ForeignKey, UUID, JSON
 from app.database import Base, get_utc_now
 
 class Persona(Base):
@@ -12,11 +11,11 @@ class Persona(Base):
     name = Column(String(255), nullable=False)
     headline = Column(String(255), nullable=False)
     niche = Column(String(255), nullable=False)
-    content_pillars = Column(ARRAY(String), nullable=False)       # max 3
+    content_pillars = Column(JSON, nullable=False)       # max 3
     tone = Column(String(50), nullable=False)                      # professional|conversational|bold|storytelling
     target_audience = Column(Text, nullable=False)
     content_goal = Column(String(50), nullable=False)              # grow_followers|get_clients|build_authority|network
     posting_frequency = Column(String(20), nullable=False)         # daily|3x_week|2x_week|weekly
-    avoid_topics = Column(ARRAY(String), nullable=True, default=[])
+    avoid_topics = Column(JSON, nullable=True, default=[])
     unique_differentiator = Column(Text, nullable=False)
     updated_at = Column(DateTime, default=get_utc_now, onupdate=get_utc_now)
