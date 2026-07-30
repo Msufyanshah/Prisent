@@ -7,6 +7,7 @@ from app.routes.persona import router as persona_router
 from app.routes.generate import router as generate_router
 from app.routes.linkedin_auth import router as linkedin_auth_router
 from app.routes.posts import router as posts_router
+from app.routes.analytics import router as analytics_router
 from app.utils.envelope import http_exception_handler, validation_exception_handler
 from fastapi.exceptions import RequestValidationError, HTTPException
 
@@ -33,6 +34,8 @@ app.include_router(persona_router)
 app.include_router(generate_router)
 app.include_router(linkedin_auth_router)
 app.include_router(posts_router)
+app.include_router(analytics_router)
+
 
 @app.get("/")
 async def root():
