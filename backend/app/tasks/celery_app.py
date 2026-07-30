@@ -6,7 +6,7 @@ celery_app = Celery(
     "autopost_tasks",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["app.tasks.pipeline", "app.tasks.scheduler"]
+    include=["app.tasks.pipeline", "app.tasks.scheduler", "app.tasks.analytics_sync"]
 )
 
 celery_app.conf.update(
@@ -23,4 +23,9 @@ celery_app.conf.beat_schedule = {
         "task": "publish_scheduled_posts",
         "schedule": 300.0,
     },
+    "sync-analytics-every-6-hours": {
+        "task": "sync_linkedin_analytics",
+        "schedule": 21600.0,
+    },
 }
+
