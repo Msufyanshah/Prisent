@@ -36,3 +36,22 @@ export interface GenerationJob {
   post_id: string | null;
   error: string | null;
 }
+
+export interface AnalyticsSummary {
+  total_posts_published: number;
+  avg_impressions: number;
+  avg_reactions: number;
+  avg_comments: number;
+  best_pillar: string | null;
+}
+
+export interface PostAnalytics {
+  post_id: string;
+  content_preview: string;
+  pillar: string | null;
+  impressions: number;
+  reactions: number;
+  comments: number;
+  published_at: string | null;
+}
+
