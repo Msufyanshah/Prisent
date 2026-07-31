@@ -62,5 +62,6 @@ export const api = {
     apiFetch<PostResponse>(`/posts/${id}/publish-now`, { method: "POST" }),
   getAnalyticsSummary: () => apiFetch<AnalyticsSummary>("/analytics/summary"),
   getAnalyticsPosts: () => apiFetch<PostAnalytics[]>("/analytics/posts"),
+  getAnalyticsInsight: () => apiFetch<{ insight: string }>("/analytics/insight"),
 };
 
