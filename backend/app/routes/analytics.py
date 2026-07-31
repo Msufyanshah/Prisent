@@ -6,6 +6,7 @@ from app.models.user import User
 from app.models.post import Post
 from app.routes.auth import require_auth
 from app.schemas.analytics import AnalyticsSummary, PostAnalytics
+from app.config import settings
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -58,3 +59,49 @@ async def get_post_analytics(current_user: User = Depends(require_auth), db: Asy
         )
         for p in posts
     ]
+
+@router.get("/insight")
+async def get_insight(current_user: User = Depends(require_auth), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Post).where(Post.user_id == current_user.id, Post.status == "published")
+    )
+    posts = result.scalars().all()
+
+    if not posts:
+        return {"insight": "No published posts yet. Once you publish content, your AI assistant will analyze performance trends to suggest optimizations."}
+
+    # Format posts for LLM context
+    context_lines = []
+    for p in posts[:15]:  # Take up to 15 recent published posts
+        context_lines.append(
+            f"Pillar: {p.content_pillar or 'N/A'} | Likes: {p.reactions} | Comments: {p.comments}\nContent: {p.content[:150]}..."
+        )
+    posts_context = "\n---\n".join(context_lines)
+
+    prompt = f"""
+    You are an expert LinkedIn growth strategist. Analyze the performance of these recent posts:
+    
+    {posts_context}
+    
+    Provide exactly one brief paragraph (max 3 sentences) of highly actionable advice. Identify which topic or pillar is performing best and suggest a specific strategy the user should use for their next post to maximize engagement. Keep the tone professional, encouraging, and direct. Refer to specific data points if helpful.
+    """
+
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+
+    try:
+        completion = await client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a LinkedIn analytics growth advisor. Provide brief, actionable growth insights."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=150,
+            temperature=0.7
+        )
+        insight = completion.choices[0].message.content.strip()
+    except Exception as e:
+        insight = f"Failed to generate insight: {str(e)}. Keep posting to let our AI models find performance optimizations."
+
+    return {"insight": insight}
+
