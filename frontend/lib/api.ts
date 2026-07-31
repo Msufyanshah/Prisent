@@ -1,4 +1,4 @@
-import type { PersonaResponse, PostResponse, GenerationJob } from "./types";
+import type { PersonaResponse, PostResponse, GenerationJob, AnalyticsSummary, PostAnalytics } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -60,4 +60,7 @@ export const api = {
     apiFetch<PostResponse>(`/posts/${id}/approve`, { method: "POST", body: JSON.stringify({ scheduled_at: scheduledAt }) }),
   publishNow: (id: string) =>
     apiFetch<PostResponse>(`/posts/${id}/publish-now`, { method: "POST" }),
+  getAnalyticsSummary: () => apiFetch<AnalyticsSummary>("/analytics/summary"),
+  getAnalyticsPosts: () => apiFetch<PostAnalytics[]>("/analytics/posts"),
 };
+
