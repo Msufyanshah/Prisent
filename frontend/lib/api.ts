@@ -33,6 +33,10 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    if (res.status === 401 && typeof window !== "undefined") {
+      clearToken();
+      window.location.href = "/login";
+    }
     throw new ApiError(res.status, body.detail?.code || "UNKNOWN", body.detail?.message || res.statusText);
   }
   return res.json();
