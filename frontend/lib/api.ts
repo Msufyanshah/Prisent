@@ -1,4 +1,4 @@
-import type { PersonaResponse, PostResponse, GenerationJob, AnalyticsSummary, PostAnalytics } from "./types";
+import type { PersonaResponse, PostResponse, GenerationJob, AnalyticsSummary, PostAnalytics, LinkedInStatusResponse } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -72,5 +72,9 @@ export const api = {
   getAnalyticsSummary: () => apiFetch<AnalyticsSummary>("/analytics/summary"),
   getAnalyticsPosts: () => apiFetch<PostAnalytics[]>("/analytics/posts"),
   getAnalyticsInsight: () => apiFetch<{ insight: string }>("/analytics/insight"),
+  getLinkedInConnectUrl: () => apiFetch<{ redirect_url: string }>("/auth/linkedin/connect"),
+  getLinkedInStatus: () => apiFetch<LinkedInStatusResponse>("/auth/linkedin/status"),
+  disconnectLinkedIn: () => apiFetch<{ connected: boolean }>("/auth/linkedin/disconnect", { method: "POST" }),
 };
+
 
