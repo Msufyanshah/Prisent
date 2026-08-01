@@ -39,7 +39,12 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     }
     throw new ApiError(res.status, body.detail?.code || "UNKNOWN", body.detail?.message || res.statusText);
   }
-  return res.json();
+
+  const body = await res.json();
+  if (body && typeof body === "object" && "success" in body && "data" in body) {
+    return body.data as T;
+  }
+  return body as T;
 }
 
 export const api = {
