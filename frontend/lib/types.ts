@@ -55,3 +55,9 @@ export interface PostAnalytics {
   published_at: string | null;
 }
 
+export interface LinkedInStatusResponse {
+  connected: boolean;
+  linkedin_name: string | null;
+}
+
+
