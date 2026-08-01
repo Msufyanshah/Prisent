@@ -19,12 +19,13 @@ export default function SettingsPage() {
     avoid_topics: [],
     unique_differentiator: "Focus on concrete code examples and measurable performance metrics rather than theoretical high-level concepts."
   });
-  
   const [newPillar, setNewPillar] = useState("");
   const [addingPillar, setAddingPillar] = useState(false);
   const [statusText, setStatusText] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [liStatus, setLiStatus] = useState<{ connected: boolean; linkedin_name: string | null }>({ connected: false, linkedin_name: null });
+  const [liLoading, setLiLoading] = useState(false);
 
   useEffect(() => {
     api.getPersona()
@@ -32,7 +33,46 @@ export default function SettingsPage() {
         if (p) setForm(p);
       })
       .catch(() => {});
+
+    async function loadStatus() {
+      try {
+        const status = await api.getLinkedInStatus();
+        setLiStatus(status);
+      } catch (e) {
+        console.error("Failed to load LinkedIn status:", e);
+      }
+    }
+    loadStatus();
   }, []);
+
+  async function handleConnect() {
+    setLiLoading(true);
+    try {
+      const res = await api.getLinkedInConnectUrl();
+      if (res.redirect_url) {
+        window.location.href = res.redirect_url;
+      }
+    } catch (e) {
+      console.error("Failed to get connection url:", e);
+      setError("Failed to initiate LinkedIn connection.");
+    } finally {
+      setLiLoading(false);
+    }
+  }
+
+  async function handleDisconnect() {
+    setLiLoading(true);
+    try {
+      await api.disconnectLinkedIn();
+      setLiStatus({ connected: false, linkedin_name: null });
+      setStatusText("LinkedIn disconnected.");
+    } catch (e) {
+      console.error("Failed to disconnect LinkedIn:", e);
+      setError("Failed to disconnect LinkedIn.");
+    } finally {
+      setLiLoading(false);
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -266,6 +306,43 @@ export default function SettingsPage() {
         </div>
 
       </form>
+
+      {/* LINKEDIN CONNECTION CARD */}
+      <div className="border border-borderMuted bg-surface p-6 rounded-container space-y-4">
+        <h2 className="text-xs font-mono font-medium tracking-wider text-textMuted uppercase border-b border-borderMuted/30 pb-1">Integrations</h2>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-background border border-borderMuted p-4 rounded-interactive gap-4">
+          <div className="space-y-1">
+            <div className="text-sm font-medium text-textPrimary">LinkedIn Integration</div>
+            <div className="text-xs text-textMuted font-mono">
+              {liStatus.connected 
+                ? `[CONNECTED] Active session for ${liStatus.linkedin_name}`
+                : "[DISCONNECTED] Standby. Authorization required to publish."
+              }
+            </div>
+          </div>
+          <div>
+            {liStatus.connected ? (
+              <button
+                type="button"
+                onClick={handleDisconnect}
+                disabled={liLoading}
+                className="px-4 py-2 rounded-interactive border border-red-500 text-red-500 text-xs font-mono hover:bg-red-500/5 transition-colors disabled:opacity-40"
+              >
+                Disconnect
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleConnect}
+                disabled={liLoading}
+                className="px-4 py-2 rounded-interactive bg-accent text-background text-xs font-mono font-bold hover:bg-accent-hover transition-colors disabled:opacity-40"
+              >
+                Connect LinkedIn
+              </button>
+            )}
+          </div>
+      </div>
     </div>
+  </div>
   );
 }
