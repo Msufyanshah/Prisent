@@ -71,7 +71,35 @@ async def linkedin_callback(
 
     user.linkedin_access_token = encrypt_token(access_token)
     user.linkedin_token_expiry = get_utc_now() + timedelta(seconds=expires_in)
-    user.linkedin_person_id = profile.get("sub")
+    user.linkedin_person_id = f"{profile.get('sub')}|{profile.get('name', 'Connected User')}"
     await db.commit()
 
     return {"connected": True, "linkedin_name": profile.get("name")}
+
+@router.get("/status")
+async def linkedin_status(current_user: User = Depends(require_auth)):
+    connected = current_user.linkedin_access_token is not None
+    linkedin_name = None
+    if connected and current_user.linkedin_person_id:
+        parts = current_user.linkedin_person_id.split("|")
+        if len(parts) > 1:
+            linkedin_name = parts[1]
+        else:
+            linkedin_name = parts[0]
+            
+    return {
+        "connected": connected,
+        "linkedin_name": linkedin_name
+    }
+
+@router.post("/disconnect")
+async def linkedin_disconnect(
+    current_user: User = Depends(require_auth),
+    db: AsyncSession = Depends(get_db)
+):
+    current_user.linkedin_access_token = None
+    current_user.linkedin_token_expiry = None
+    current_user.linkedin_person_id = None
+    await db.commit()
+    return {"connected": False}
+
