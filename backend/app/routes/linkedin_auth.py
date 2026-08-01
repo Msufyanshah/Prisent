@@ -2,6 +2,7 @@
 import secrets
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db, get_utc_now
@@ -12,6 +13,7 @@ from app.services.linkedin_oauth import (
 )
 from app.services.encryption import encrypt_token
 from app.utils.envelope import EnvelopedRoute
+
 
 import redis.asyncio as aioredis
 from app.config import settings
@@ -74,7 +76,10 @@ async def linkedin_callback(
     user.linkedin_person_id = f"{profile.get('sub')}|{profile.get('name', 'Connected User')}"
     await db.commit()
 
-    return {"connected": True, "linkedin_name": profile.get("name")}
+    frontend_url = "http://localhost:3000"
+    if settings.ALLOWED_ORIGINS:
+        frontend_url = settings.ALLOWED_ORIGINS[0]
+    return RedirectResponse(url=f"{frontend_url}/dashboard/settings?connected=true")
 
 @router.get("/status")
 async def linkedin_status(current_user: User = Depends(require_auth)):
