@@ -14,7 +14,13 @@ def create_collections():
     """Run once at startup to ensure collections exist."""
     client = get_qdrant_client()
 
-    existing = [c.name for c in client.get_collections().collections]
+    try:
+        existing = [c.name for c in client.get_collections().collections]
+    except Exception as e:
+        print(f"Warning: Qdrant connection to {settings.QDRANT_URL} failed ({str(e)}). Falling back to in-memory ':memory:' mode.")
+        settings.QDRANT_URL = ":memory:"
+        client = get_qdrant_client()
+        existing = [c.name for c in client.get_collections().collections]
 
     if "user_voice_memory" not in existing:
         client.create_collection(
@@ -27,3 +33,4 @@ def create_collections():
         print("Created collection: user_voice_memory")
     else:
         print("Collection already exists: user_voice_memory")
+
