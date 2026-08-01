@@ -15,13 +15,11 @@ from app.services.encryption import encrypt_token
 from app.utils.envelope import EnvelopedRoute
 
 
-import redis.asyncio as aioredis
 from app.config import settings
+from app.services.redis_client import get_redis
 
 router = APIRouter(prefix="/auth/linkedin", tags=["linkedin-auth"], route_class=EnvelopedRoute)
 
-async def get_redis():
-    return await aioredis.from_url(settings.REDIS_URL)
 
 @router.get("/connect")
 async def linkedin_connect(current_user: User = Depends(require_auth)):

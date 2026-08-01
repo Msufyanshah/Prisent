@@ -1,12 +1,8 @@
-# backend/app/services/rate_limiter.py
-import redis.asyncio as aioredis
 from datetime import datetime, timezone
 from app.config import settings
+from app.services.redis_client import get_redis
 
 MAX_DAILY_GENERATIONS = 10
-
-async def get_redis():
-    return await aioredis.from_url(settings.REDIS_URL)
 
 async def check_generation_limit(user_id: str) -> tuple[bool, int]:
     """
