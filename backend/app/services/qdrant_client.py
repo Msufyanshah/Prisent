@@ -3,9 +3,10 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import PointStruct, Filter, FieldCondition, MatchValue
 from app.config import settings
 from app.services.embeddings import embed_text, embed_batch
+from app.services.qdrant_setup import get_qdrant_client
 
 def get_client() -> QdrantClient:
-    return QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY or None, timeout=30.0)
+    return get_qdrant_client()
 
 COLLECTION = "user_voice_memory"
 

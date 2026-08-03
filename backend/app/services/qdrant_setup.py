@@ -2,9 +2,14 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 from app.config import settings
 
+_cached_client = None
+
 def get_qdrant_client() -> QdrantClient:
+    global _cached_client
     if settings.QDRANT_URL == ":memory:":
-        return QdrantClient(":memory:")
+        if _cached_client is None:
+            _cached_client = QdrantClient(":memory:")
+        return _cached_client
     return QdrantClient(
         url=settings.QDRANT_URL,
         api_key=settings.QDRANT_API_KEY or None
