@@ -16,6 +16,7 @@ export default function SettingsPage() {
     target_audience: "Senior developers and tech leads",
     content_goal: "grow_followers",
     posting_frequency: "3x_week",
+    tone: "professional",
     avoid_topics: [],
     unique_differentiator: "Focus on concrete code examples and measurable performance metrics rather than theoretical high-level concepts."
   });
@@ -28,9 +29,18 @@ export default function SettingsPage() {
   const [liLoading, setLiLoading] = useState(false);
 
   useEffect(() => {
+    // Check if redirect has error query params
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const oauthError = params.get("error");
+      if (oauthError) {
+        setError(oauthError);
+      }
+    }
+
     api.getPersona()
       .then(p => {
-        if (p) setForm(p);
+        if (p) setForm(prev => ({ ...prev, ...p, tone: p.tone || "professional" }));
       })
       .catch(() => {});
 
@@ -80,7 +90,19 @@ export default function SettingsPage() {
     setStatusText("");
     setLoading(true);
     try {
-      await api.savePersona(form);
+      const payload = {
+        name: form.name || "",
+        headline: form.headline || "",
+        niche: form.niche || "",
+        content_pillars: form.content_pillars || [],
+        tone: form.tone || "professional",
+        target_audience: form.target_audience || "",
+        content_goal: form.content_goal || "grow_followers",
+        posting_frequency: form.posting_frequency || "3x_week",
+        avoid_topics: form.avoid_topics || [],
+        unique_differentiator: form.unique_differentiator || ""
+      };
+      await api.savePersona(payload);
       const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       setStatusText(`Saved - ${time}`);
     } catch (e) {
