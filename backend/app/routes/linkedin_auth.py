@@ -32,10 +32,25 @@ async def linkedin_connect(current_user: User = Depends(require_auth)):
 
 @router.get("/callback")
 async def linkedin_callback(
-    code: str = Query(...),
-    state: str = Query(...),
+    code: str = Query(None),
+    state: str = Query(None),
+    error: str = Query(None),
+    error_description: str = Query(None),
     db: AsyncSession = Depends(get_db)
 ):
+    frontend_url = "http://localhost:3000"
+    if settings.ALLOWED_ORIGINS:
+        frontend_url = settings.ALLOWED_ORIGINS[0]
+
+    if error:
+        return RedirectResponse(url=f"{frontend_url}/dashboard/settings?connected=false&error={error_description or error}")
+
+    if not state:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "INVALID_STATE", "message": "Missing state parameter"}
+        )
+
     r = await get_redis()
     redis_key = f"oauth_state:{state}"
     user_id_bytes = await r.get(redis_key)
@@ -49,6 +64,12 @@ async def linkedin_callback(
             detail={"code": "INVALID_STATE", "message": "OAuth state mismatch or expired"}
         )
     user_id = user_id_bytes.decode("utf-8")
+
+    if not code:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "BAD_REQUEST", "message": "Authorization code is required"}
+        )
 
     try:
         token_data = await exchange_code_for_token(code)
