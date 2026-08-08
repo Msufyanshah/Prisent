@@ -1,5 +1,6 @@
 # backend/app/routes/linkedin_auth.py
 import secrets
+import uuid
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
@@ -82,7 +83,15 @@ async def linkedin_callback(
             detail={"code": "OAUTH_FAILED", "message": str(e)}
         )
 
-    result = await db.execute(select(User).where(User.id == user_id))
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "INVALID_USER_ID", "message": "Invalid user ID format"}
+        )
+
+    result = await db.execute(select(User).where(User.id == user_uuid))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(
