@@ -4,38 +4,49 @@ from app.config import settings
 
 _cached_client = None
 
-def get_qdrant_client() -> QdrantClient:
-    global _cached_client
-    if settings.QDRANT_URL == ":memory:":
-        if _cached_client is None:
-            _cached_client = QdrantClient(":memory:")
-        return _cached_client
-    return QdrantClient(
-        url=settings.QDRANT_URL,
-        api_key=settings.QDRANT_API_KEY or None
-    )
-
-def create_collections():
-    """Run once at startup to ensure collections exist."""
-    client = get_qdrant_client()
-
+def _ensure_collection(client: QdrantClient):
     try:
         existing = [c.name for c in client.get_collections().collections]
+        if "user_voice_memory" not in existing:
+            client.create_collection(
+                collection_name="user_voice_memory",
+                vectors_config=VectorParams(
+                    size=1536,
+                    distance=Distance.COSINE
+                )
+            )
+            print("Created collection: user_voice_memory")
+    except Exception as e:
+        print(f"Failed to ensure collection: {e}")
+
+def get_qdrant_client() -> QdrantClient:
+    global _cached_client
+    if _cached_client is not None:
+        return _cached_client
+
+    if settings.QDRANT_URL == ":memory:":
+        _cached_client = QdrantClient(":memory:")
+        _ensure_collection(_cached_client)
+        return _cached_client
+
+    try:
+        client = QdrantClient(
+            url=settings.QDRANT_URL,
+            api_key=settings.QDRANT_API_KEY or None,
+            timeout=1.0
+        )
+        client.get_collections()
+        _cached_client = client
+        return _cached_client
     except Exception as e:
         print(f"Warning: Qdrant connection to {settings.QDRANT_URL} failed ({str(e)}). Falling back to in-memory ':memory:' mode.")
         settings.QDRANT_URL = ":memory:"
-        client = get_qdrant_client()
-        existing = [c.name for c in client.get_collections().collections]
+        _cached_client = QdrantClient(":memory:")
+        _ensure_collection(_cached_client)
+        return _cached_client
 
-    if "user_voice_memory" not in existing:
-        client.create_collection(
-            collection_name="user_voice_memory",
-            vectors_config=VectorParams(
-                size=1536,                  # text-embedding-3-small dimensions
-                distance=Distance.COSINE    # cosine similarity for semantic search
-            )
-        )
-        print("Created collection: user_voice_memory")
-    else:
-        print("Collection already exists: user_voice_memory")
+def create_collections():
+    """Run once at startup to ensure collections exist."""
+    get_qdrant_client()
+
 

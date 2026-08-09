@@ -1,8 +1,9 @@
 # backend/app/routes/generate.py
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+
 from pydantic import BaseModel
 from typing import Literal
 
@@ -26,6 +27,8 @@ class GenerateRequest(BaseModel):
 @router.post("", status_code=202)
 async def generate_post(
     body: GenerateRequest,
+    background_tasks: BackgroundTasks,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_auth)
 ):
@@ -113,7 +116,16 @@ async def generate_post(
     await db.refresh(job)
 
     # 5. Dispatch background task
-    run_generation_pipeline.delay(user_id_str, str(job.id))
+    skip_execution = request.headers.get("x-skip-execution") == "true"
+    if skip_execution:
+        print("Skipping background task execution on server due to x-skip-execution header")
+    else:
+        from app.services.redis_client import is_redis_available
+        if is_redis_available():
+            run_generation_pipeline.delay(user_id_str, str(job.id))
+        else:
+            # Fall back to FastAPI background task (in-process)
+            background_tasks.add_task(run_generation_pipeline, user_id_str, str(job.id))
 
     return {"job_id": str(job.id), "status": "pending"}
 

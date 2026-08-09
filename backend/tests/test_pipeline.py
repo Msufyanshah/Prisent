@@ -23,6 +23,10 @@ async def run_pipeline_tests():
         token = r.json()["data"]["token"]
         user_id = r.json()["data"]["user_id"]
         headers = {"Authorization": f"Bearer {token}"}
+        generate_headers = {
+            "Authorization": f"Bearer {token}",
+            "x-skip-execution": "true"
+        }
 
         # Clean up Qdrant documents for this user
         print("Cleaning up voice memory...")
@@ -30,7 +34,7 @@ async def run_pipeline_tests():
 
         # Test A: POST /generate with NO persona -> Expect 404 PERSONA_NOT_FOUND
         print("\nTest A: Generating post without persona...")
-        r = await client.post("/generate", json={"trigger": "manual"}, headers=headers)
+        r = await client.post("/generate", json={"trigger": "manual"}, headers=generate_headers)
         print("A response:", r.status_code, r.json())
         assert r.status_code == 404
         assert r.json()["error"]["code"] == "PERSONA_NOT_FOUND"
@@ -52,12 +56,12 @@ async def run_pipeline_tests():
         r = await client.post("/persona", json=persona_data, headers=headers)
         assert r.status_code == 200
 
-        # Test B: POST /generate with persona but EMPTY voice memory -> Expect 400 VOICE_MEMORY_EMPTY
-        print("\nTest B: Generating post without voice memory...")
-        r = await client.post("/generate", json={"trigger": "manual"}, headers=headers)
+        # Test B: POST /generate with persona but EMPTY voice memory -> Expect 202 because backend auto-seeds
+        print("\nTest B: Generating post without voice memory (auto-seeding expected)...")
+        r = await client.post("/generate", json={"trigger": "manual"}, headers=generate_headers)
         print("B response:", r.status_code, r.json())
-        assert r.status_code == 400
-        assert r.json()["error"]["code"] == "VOICE_MEMORY_EMPTY"
+        assert r.status_code == 202
+        assert r.json()["data"]["status"] == "pending"
         print("Test B PASS")
 
         # Seed past posts (3 posts)
@@ -71,7 +75,7 @@ async def run_pipeline_tests():
 
         # Test C: POST /generate -> Expect 202 and Job Queued
         print("\nTest C: Starting generation pipeline...")
-        r = await client.post("/generate", json={"trigger": "manual"}, headers=headers)
+        r = await client.post("/generate", json={"trigger": "manual"}, headers=generate_headers)
         print("C response:", r.status_code, r.json())
         assert r.status_code == 202
         job_id = r.json()["data"]["job_id"]

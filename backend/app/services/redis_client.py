@@ -84,3 +84,10 @@ async def get_redis():
         print(f"Warning: Redis connection to {settings.REDIS_URL} failed ({str(e)}). Falling back to in-memory MockRedis.")
         _redis_available = False
         return MockRedis()
+
+def is_redis_available() -> bool:
+    global _redis_available
+    if settings.REDIS_URL == ":memory:":
+        return False
+    return _redis_available is True
+
