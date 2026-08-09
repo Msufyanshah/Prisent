@@ -66,9 +66,7 @@ export default function PostsPage() {
     setLoading(true);
     try {
       const result = await api.listPosts(filter);
-      if (result && result.length > 0) {
-        setPosts(result);
-      }
+      setPosts(result || []);
     } catch (e) {
       if (e instanceof ApiError) setError(e.message);
     } finally {
@@ -124,64 +122,76 @@ export default function PostsPage() {
           <div className="text-center py-12 text-sm text-textMuted font-mono">LOADING DATA RECORDS...</div>
         ) : (
           <div className="space-y-4">
-            {posts
-              .filter(p => p.status === filter)
-              .map(post => {
-                const isSelected = activePost?.id === post.id;
-                return (
-                  <div
-                    key={post.id}
-                    onClick={() => setActivePost(post)}
-                    className={`border p-4 rounded-container transition-all cursor-pointer ${
-                      isSelected
-                        ? "border-accent bg-surface"
-                        : "border-borderMuted bg-surface/45 hover:bg-surface/75"
-                    }`}
-                  >
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-mono text-xs text-textMuted uppercase">
-                        {post.content_pillar || "General"}
-                      </span>
-                      {post.quality_score !== null && (
-                        <span className="font-mono text-xs font-semibold text-accent">
-                          Score: {post.quality_score}/100
+            {posts.filter(p => p.status === filter).length === 0 ? (
+              <div className="text-center py-16 border border-dashed border-borderMuted rounded-container bg-surface/10">
+                <p className="text-sm text-textMuted font-mono uppercase tracking-wider mb-2">No {filter} posts found</p>
+                <p className="text-xs text-textMuted/60 leading-relaxed font-sans max-w-sm mx-auto">
+                  {filter === "draft" 
+                    ? "Generate today's content from the Home tab to start queueing up posts." 
+                    : `No posts are currently marked as ${filter}.`
+                  }
+                </p>
+              </div>
+            ) : (
+              posts
+                .filter(p => p.status === filter)
+                .map(post => {
+                  const isSelected = activePost?.id === post.id;
+                  return (
+                    <div
+                      key={post.id}
+                      onClick={() => setActivePost(post)}
+                      className={`border p-4 rounded-container transition-all cursor-pointer ${
+                        isSelected
+                          ? "border-accent bg-surface"
+                          : "border-borderMuted bg-surface/45 hover:bg-surface/75"
+                      }`}
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-mono text-xs text-textMuted uppercase">
+                          {post.content_pillar || "General"}
                         </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-textPrimary/90 leading-relaxed font-sans mb-4">
-                      {post.content}
-                    </p>
-
-                    <div className="flex justify-between items-center" onClick={e => e.stopPropagation()}>
-                      <div className="text-xs text-textMuted font-mono">
-                        {post.status === "published" && post.linkedin_post_id && (
-                          <span>
-                            {post.impressions} Views · {post.reactions} Likes · {post.comments} Comments
+                        {post.quality_score !== null && (
+                          <span className="font-mono text-xs font-semibold text-accent">
+                            Score: {post.quality_score}/100
                           </span>
                         )}
                       </div>
-                      <div className="flex space-x-2">
-                        {post.status === "draft" && (
-                          <button
-                            onClick={() => handleAction("approve", post)}
-                            className="px-3 py-1.5 rounded-interactive bg-accent text-xs font-medium text-background hover:bg-accent-hover transition-colors"
-                          >
-                            Approve & Schedule
-                          </button>
-                        )}
-                        {post.status === "scheduled" && (
-                          <button
-                            onClick={() => handleAction("publish-now", post)}
-                            className="px-3 py-1.5 rounded-interactive border border-borderMuted text-xs font-medium hover:bg-borderMuted/30 transition-colors"
-                          >
-                            Publish Now
-                          </button>
-                        )}
+                      <p className="text-sm text-textPrimary/90 leading-relaxed font-sans mb-4">
+                        {post.content}
+                      </p>
+
+                      <div className="flex justify-between items-center" onClick={e => e.stopPropagation()}>
+                        <div className="text-xs text-textMuted font-mono">
+                          {post.status === "published" && post.linkedin_post_id && (
+                            <span>
+                              {post.impressions} Views · {post.reactions} Likes · {post.comments} Comments
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex space-x-2">
+                          {post.status === "draft" && (
+                            <button
+                              onClick={() => handleAction("approve", post)}
+                              className="px-3 py-1.5 rounded-interactive bg-accent text-xs font-medium text-background hover:bg-accent-hover transition-colors"
+                            >
+                              Approve & Schedule
+                            </button>
+                          )}
+                          {post.status === "scheduled" && (
+                            <button
+                              onClick={() => handleAction("publish-now", post)}
+                              className="px-3 py-1.5 rounded-interactive border border-borderMuted text-xs font-medium hover:bg-borderMuted/30 transition-colors"
+                            >
+                              Publish Now
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+            )}
           </div>
         )}
       </div>
