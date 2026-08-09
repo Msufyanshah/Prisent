@@ -60,7 +60,7 @@ export const api = {
   savePersona: (data: Partial<PersonaResponse>) =>
     apiFetch<PersonaResponse>("/persona", { method: "POST", body: JSON.stringify(data) }),
   triggerGeneration: () =>
-    apiFetch<{ job_id: string }>("/generate", { method: "POST" }),
+    apiFetch<{ job_id: string }>("/generate", { method: "POST", body: JSON.stringify({}) }),
   pollGeneration: (jobId: string) =>
     apiFetch<GenerationJob>(`/generate/${jobId}`),
   listPosts: (status?: string) =>
