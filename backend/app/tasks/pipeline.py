@@ -9,6 +9,7 @@ def run_generation_pipeline(user_id: str, job_id: str):
     """
     Celery background task wrapper for the agent orchestrator.
     """
+    print(f"[Celery] Starting run_generation_pipeline for user {user_id}, job {job_id}")
     async def _execute():
         async with AsyncSessionLocal() as db:
             await run_orchestrator(user_id=user_id, job_id=job_id, db=db)
@@ -24,3 +25,17 @@ def run_generation_pipeline(user_id: str, job_id: str):
         future.result()
     else:
         loop.run_until_complete(_execute())
+    print(f"[Celery] Finished run_generation_pipeline for user {user_id}, job {job_id}")
+
+async def run_generation_pipeline_async(user_id: str, job_id: str):
+    """
+    Async background task wrapper for FastAPI BackgroundTasks.
+    """
+    print(f"[FastAPI BackgroundTask] Starting run_generation_pipeline_async for user {user_id}, job {job_id}")
+    try:
+        async with AsyncSessionLocal() as db:
+            await run_orchestrator(user_id=user_id, job_id=job_id, db=db)
+        print(f"[FastAPI BackgroundTask] Finished run_generation_pipeline_async successfully for user {user_id}, job {job_id}")
+    except Exception as e:
+        print(f"[FastAPI BackgroundTask] Failed run_generation_pipeline_async for user {user_id}, job {job_id}: {str(e)}")
+

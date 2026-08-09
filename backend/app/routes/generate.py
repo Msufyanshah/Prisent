@@ -16,7 +16,7 @@ from app.routes.auth import require_auth
 from app.services.rate_limiter import check_generation_limit, decrement_generation_count
 from app.services.qdrant_client import get_client, COLLECTION
 from qdrant_client.models import Filter, FieldCondition, MatchValue
-from app.tasks.pipeline import run_generation_pipeline
+from app.tasks.pipeline import run_generation_pipeline, run_generation_pipeline_async
 from app.utils.envelope import EnvelopedRoute
 
 router = APIRouter(prefix="/generate", tags=["generate"], route_class=EnvelopedRoute)
@@ -124,8 +124,8 @@ async def generate_post(
         if is_redis_available():
             run_generation_pipeline.delay(user_id_str, str(job.id))
         else:
-            # Fall back to FastAPI background task (in-process)
-            background_tasks.add_task(run_generation_pipeline, user_id_str, str(job.id))
+            # Fall back to FastAPI background task (in-process, async)
+            background_tasks.add_task(run_generation_pipeline_async, user_id_str, str(job.id))
 
     return {"job_id": str(job.id), "status": "pending"}
 
