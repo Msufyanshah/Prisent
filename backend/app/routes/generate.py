@@ -70,6 +70,32 @@ async def generate_post(
         post_count = 0
 
     if post_count < 3:
+        print(f"Auto-seeding default voice memory posts for user {user_id_str}")
+        from app.services.qdrant_client import upsert_batch
+        default_posts = [
+            {
+                "content": "The future of B2B SaaS isn't just about adding AI features. It's about fundamental workflow restructuring. Execution speed outpaces raw analytical capability in determining market leaders.",
+                "type": "past_post",
+                "metadata": {"pillar": "thought-leadership"}
+            },
+            {
+                "content": "Implementing vector databases at scale requires more than just standard indexing. Our engineering team recently overhauled our semantic search infrastructure, reducing latency by 40%.",
+                "type": "past_post",
+                "metadata": {"pillar": "technical"}
+            },
+            {
+                "content": "We're excited to announce our upcoming feature set focused entirely on autonomous background agent loops. This release introduces deterministic schema checking.",
+                "type": "past_post",
+                "metadata": {"pillar": "update"}
+            }
+        ]
+        try:
+            await upsert_batch(user_id_str, default_posts)
+            post_count = 3
+        except Exception as e:
+            print(f"Failed to auto-seed default posts: {str(e)}")
+
+    if post_count < 3:
         await decrement_generation_count(user_id_str)
         raise HTTPException(
             status_code=400,
