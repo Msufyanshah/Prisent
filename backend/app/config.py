@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     REDIS_URL: str
     OPENAI_API_KEY: str
     USE_MOCK_EMBEDDINGS: bool = False
+    USE_CELERY: bool = False
     QDRANT_URL: str = "http://localhost:6333"
     QDRANT_API_KEY: str = ""
     ENCRYPTION_KEY: str

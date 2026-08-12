@@ -120,8 +120,9 @@ async def generate_post(
     if skip_execution:
         print("Skipping background task execution on server due to x-skip-execution header")
     else:
+        from app.config import settings
         from app.services.redis_client import is_redis_available
-        if is_redis_available():
+        if settings.USE_CELERY and is_redis_available():
             run_generation_pipeline.delay(user_id_str, str(job.id))
         else:
             # Fall back to FastAPI background task (in-process, async)
