@@ -35,23 +35,27 @@ class EnvelopedRoute(APIRoute):
                     headers = dict(response.headers)
                     headers.pop("content-length", None)
                     headers.pop("Content-Length", None)
-                    return Response(
+                    new_response = Response(
                         content=json.dumps(wrapped).encode("utf-8"),
                         status_code=response.status_code,
                         media_type="application/json",
                         headers=headers
                     )
+                    new_response.background = response.background
+                    return new_response
                 except Exception:
                     # If parsing fails, return original response
                     headers = dict(response.headers)
                     headers.pop("content-length", None)
                     headers.pop("Content-Length", None)
-                    return Response(
+                    new_response = Response(
                         content=body,
                         status_code=response.status_code,
                         media_type=response.media_type,
                         headers=headers
                     )
+                    new_response.background = response.background
+                    return new_response
             return response
 
         return custom_route_handler
