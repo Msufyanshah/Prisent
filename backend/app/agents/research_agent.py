@@ -26,7 +26,12 @@ RESEARCH_TOOLS = [
 
 async def mock_web_search(query: str) -> str:
     """Placeholder — replace with real search API (Serper/Tavily) in production."""
-    return f"Search results for '{query}': AI agents trending strongly in 2026, focus on production deployment, testing frameworks, and multi-agent coordination patterns."
+    return f"""Search results for '{query}':
+- TechCrunch (https://techcrunch.com/2026/08/ai-agents): B2B SaaS platforms are shifting to autonomous agent architectures.
+- VentureBeat (https://venturebeat.com/ai/agentic-workflows): Multi-agent orchestration is the top trend in enterprise automation.
+- GitHub Trending (https://github.com/trending): Open-source agent frameworks (LangChain, CrewAI, AutoGen) are seeing 50% MoM star growth.
+- Hacker News: Deep discussions on prompt engineering vs deterministic code in agent flows.
+"""
 
 async def run_research_agent(
     niche: str,
@@ -65,12 +70,14 @@ Recent posts (avoid repeating): {', '.join(recent_post_topics) if recent_post_to
 
     # Tool calling loop (max 5 iterations)
     try:
-        for _ in range(5):
+        for i in range(5):
+            current_tools = RESEARCH_TOOLS if i == 0 else None
+            tool_choice = "auto" if i == 0 else None
             response = await client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=messages,
-                tools=RESEARCH_TOOLS,
-                tool_choice="auto"
+                tools=current_tools,
+                tool_choice=tool_choice
             )
 
             message = response.choices[0].message
