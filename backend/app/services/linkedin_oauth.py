@@ -10,6 +10,8 @@ SCOPES = ["openid", "profile", "w_member_social"]
 
 def get_authorization_url(state: str) -> str:
     if settings.LINKEDIN_CLIENT_ID == "mock-id":
+        if settings.ENV != "development":
+            raise RuntimeError("Mock LinkedIn mode is not permitted outside development")
         return f"{settings.LINKEDIN_REDIRECT_URI}?code=mock_auth_code_xyz&state={state}"
 
     params = {
@@ -24,6 +26,8 @@ def get_authorization_url(state: str) -> str:
 
 async def exchange_code_for_token(code: str) -> dict:
     if settings.LINKEDIN_CLIENT_ID == "mock-id" or code == "mock_auth_code_xyz":
+        if settings.ENV != "development":
+            raise RuntimeError("Mock LinkedIn mode is not permitted outside development")
         return {
             "access_token": "mock_access_token_aqx123",
             "expires_in": 5184000
@@ -46,6 +50,8 @@ async def exchange_code_for_token(code: str) -> dict:
 
 async def get_linkedin_profile(access_token: str) -> dict:
     if settings.LINKEDIN_CLIENT_ID == "mock-id" or access_token == "mock_access_token_aqx123":
+        if settings.ENV != "development":
+            raise RuntimeError("Mock LinkedIn mode is not permitted outside development")
         return {
             "sub": "mock_person_id_999",
             "name": "LinkedIn Mock User",

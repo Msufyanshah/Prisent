@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Text, UUID
+from sqlalchemy import Column, String, DateTime, Text, UUID, Boolean
 from app.database import Base, get_utc_now
 
 class User(Base):
@@ -13,5 +13,7 @@ class User(Base):
     linkedin_access_token = Column(Text, nullable=True)   # stored encrypted
     linkedin_token_expiry = Column(DateTime, nullable=True)
     linkedin_person_id = Column(String(255), nullable=True)
+    linkedin_display_name = Column(String(255), nullable=True)
+    sidebar_collapsed = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=get_utc_now, nullable=False)
     updated_at = Column(DateTime, default=get_utc_now, onupdate=get_utc_now)

@@ -14,11 +14,7 @@ async def publish_to_linkedin(user: User, content: str) -> str:
     check_linkedin_token_valid(user)
 
     access_token = decrypt_token(user.linkedin_access_token)
-    
     person_id = user.linkedin_person_id
-    if person_id and "|" in person_id:
-        person_id = person_id.split("|")[0]
-        
     person_urn = f"urn:li:person:{person_id}"
 
     # Handle offline mock flow

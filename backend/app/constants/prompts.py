@@ -52,6 +52,7 @@ LinkedIn 2026 Depth Score Rules (MUST follow):
 - End with: a genuine question OR a sharp insight (NOT a CTA)
 - No promotional language in first 3 lines
 - Maximum 3 emojis in the entire post
+- ABSOLUTE GROUNDING RULE: Do NOT invent or fabricate specific numbers, percentages, statistics, or "our team reduced X by Y%" claims unless explicitly provided in the user profile or voice samples. Speak in general principles, observations, and insights instead.
 
 Topic: {topic}
 Angle: {angle}
@@ -78,7 +79,7 @@ Score each dimension 0-20 (total max 100):
 2. hook_quality: Under 49 chars? Stops scroll without bait?
 3. depth_score_compliance: No banned phrases? Genuine ending?
 4. clarity: Clear idea, easy to read, good structure?
-5. authenticity: No hallucinated statistics? Specific not vague?
+5. authenticity: No hallucinated statistics, fabricated percentages, or unverified claims? (REJECT if post contains made-up numbers or "our team did X" statistics not sourced from user profile).
 
 Approve if total >= 70. Reject with SPECIFIC actionable feedback if < 70.
 Hard fail if retry_count >= 2 (accept whatever draft exists).

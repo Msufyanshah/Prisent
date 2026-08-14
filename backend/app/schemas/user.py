@@ -21,3 +21,6 @@ class AuthResponse(BaseModel):
     user_id: str
     token: str
     name: str
+
+class PreferencesRequest(BaseModel):
+    sidebar_collapsed: bool

@@ -3,7 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.user import User
-from app.schemas.user import RegisterRequest, LoginRequest, AuthResponse
+from app.schemas.user import RegisterRequest, LoginRequest, AuthResponse, PreferencesRequest
 from app.services.auth import (
     hash_password, verify_password, create_access_token,
     get_user_by_email, get_current_user
@@ -60,3 +60,21 @@ async def require_auth(
             detail={"code": "UNAUTHORIZED", "message": "Invalid or expired token"}
         )
     return user
+
+@router.get("/preferences")
+async def get_preferences(current_user: User = Depends(require_auth)):
+    return {
+        "sidebar_collapsed": current_user.sidebar_collapsed
+    }
+
+@router.patch("/preferences")
+async def update_preferences(
+    body: PreferencesRequest,
+    current_user: User = Depends(require_auth),
+    db: AsyncSession = Depends(get_db)
+):
+    current_user.sidebar_collapsed = body.sidebar_collapsed
+    await db.commit()
+    return {
+        "sidebar_collapsed": current_user.sidebar_collapsed
+    }
