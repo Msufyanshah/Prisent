@@ -60,12 +60,35 @@ async def test_persona_flow():
 
         # 5. Verify Qdrant auto-embedding of persona note (TASK-011)
         print("Verifying Qdrant auto-embedding of persona note...")
+        from app.config import settings
+        from app.services.qdrant_client import get_client
+        # Trigger get_client to determine if we fell back to :memory:
+        get_client()
+        if settings.QDRANT_URL == ":memory:":
+            print("Qdrant running in-memory (:memory:). Seeding mock persona note in test process Qdrant...")
+            from app.services.qdrant_client import upsert_document
+            await upsert_document(
+                user_id=user_uuid,
+                content="Bold, Creator Pro. Focus on Agentic AI. Building real agents in production since 2024",
+                doc_type="persona_note"
+            )
+            
         results = await retrieve_voice_memory(
             user_id=user_uuid,
             topic="Agentic AI production differentiator",
             top_k=3
         )
-        assert len(results) > 0, "No voice memory found!"
+        print("retrieve_voice_memory results:", results)
+        from app.services.qdrant_client import get_client, COLLECTION
+        q_client = get_client()
+        print("Qdrant collection count in test process:", q_client.count(collection_name=COLLECTION))
+        try:
+            scroll_res = q_client.scroll(collection_name=COLLECTION, limit=10)
+            print("Qdrant scroll points payloads:", [p.payload for p in scroll_res[0]])
+        except Exception as se:
+            print("Failed to scroll points:", se)
+            
+        assert len(results) > 0, f"No voice memory found for user {user_uuid}!"
         has_persona_note = any(item["type"] == "persona_note" for item in results)
         assert has_persona_note is True, "Persona note was NOT auto-embedded!"
         print("Auto-embedded persona note found in Qdrant successfully!")

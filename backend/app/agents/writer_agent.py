@@ -115,9 +115,8 @@ What is the biggest challenge you have faced when deploying AI systems to produc
             words = len(output["post_content"].split())
             output["word_count"] = words
             output["estimated_read_time_seconds"] = int(words / 3)
-            # Default content pillar if missing
-            if "content_pillar" not in output:
-                output["content_pillar"] = content_pillar
+            # Ensure the output uses the recommended content pillar
+            output["content_pillar"] = content_pillar
             # Extract hook if missing
             if "hook" not in output:
                 output["hook"] = output["post_content"].split("\n")[0]
