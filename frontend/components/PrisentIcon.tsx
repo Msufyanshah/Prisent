@@ -6,17 +6,16 @@ interface PrisentIconProps {
   className?: string;
 }
 
-export function PrisentIcon({ size = 24, className = "" }: PrisentIconProps) {
+export function PrisentIcon({ size = 16, color, className = "" }: PrisentIconProps) {
   return (
     <img
       src="/image-1.png"
       alt="Prisent Logo"
-      width={size}
-      height={size}
-      className={className}
+      className={`image-1 ${className}`}
       style={{
+        width: size,
+        height: size,
         objectFit: "contain",
-        borderRadius: "8px"
       }}
     />
   );
