@@ -6,7 +6,7 @@ from app.database import get_db, get_utc_now
 from app.models.user import User
 from app.models.post import Post
 from app.routes.auth import require_auth
-from app.schemas.post import ApprovePostRequest, PostResponse
+from app.schemas.post import ApprovePostRequest, UpdatePostRequest, PostResponse
 from app.services.linkedin_publisher import publish_to_linkedin, LinkedInPublishError
 from app.services.linkedin_token_check import LinkedInTokenExpired, LinkedInNotConnected
 from app.utils.envelope import EnvelopedRoute
@@ -53,6 +53,34 @@ async def get_post(
     db: AsyncSession = Depends(get_db)
 ):
     return await _get_owned_post(post_id, current_user, db)
+
+@router.patch("/{post_id}", response_model=PostResponse)
+async def update_post(
+    post_id: str,
+    body: UpdatePostRequest,
+    current_user: User = Depends(require_auth),
+    db: AsyncSession = Depends(get_db)
+):
+    post = await _get_owned_post(post_id, current_user, db)
+
+    if post.status == "published":
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "POST_ALREADY_PUBLISHED", "message": "Published posts cannot be edited"}
+        )
+
+    if body.content is not None:
+        post.content = body.content
+        first_line = body.content.split("\n")[0].strip()
+        post.hook = first_line[:49]
+
+    if body.scheduled_at is not None:
+        scheduled_naive = body.scheduled_at.replace(tzinfo=None) if body.scheduled_at.tzinfo else body.scheduled_at
+        post.scheduled_at = scheduled_naive
+
+    await db.commit()
+    await db.refresh(post)
+    return post
 
 @router.post("/{post_id}/approve", response_model=PostResponse)
 async def approve_post(

@@ -7,6 +7,10 @@ from uuid import UUID
 class ApprovePostRequest(BaseModel):
     scheduled_at: datetime
 
+class UpdatePostRequest(BaseModel):
+    content: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
+
 class PostResponse(BaseModel):
     id: UUID
     user_id: UUID

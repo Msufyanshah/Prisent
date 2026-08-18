@@ -88,6 +88,22 @@ export default function PostsPage() {
     }
   }
 
+  const [saving, setSaving] = useState(false);
+
+  async function handleSavePost() {
+    if (!activePost) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api.updatePost(activePost.id, { content: activePost.content });
+      await loadPosts();
+    } catch (e) {
+      if (e instanceof ApiError) setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Left Column: Posts List */}
@@ -221,6 +237,17 @@ export default function PostsPage() {
                 className="w-full h-80 rounded-interactive border border-borderMuted bg-background p-3 text-sm text-textPrimary leading-relaxed focus:border-accent focus:outline-none"
               />
             </div>
+
+            {activePost.status !== "published" && (
+              <button
+                onClick={handleSavePost}
+                disabled={saving}
+                className="w-full py-2 px-4 rounded-interactive bg-accent text-xs font-medium text-background hover:bg-accent-hover transition-colors disabled:opacity-50"
+              >
+                {saving ? "SAVING CHANGES..." : "SAVE CHANGES"}
+              </button>
+            )}
+
             <div className="border-t border-borderMuted pt-4 space-y-2">
               <div className="text-xs text-textMuted font-mono">
                 [PILLAR] {activePost.content_pillar?.toUpperCase() || "NOT SPECIFIED"}

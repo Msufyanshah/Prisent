@@ -69,6 +69,8 @@ export const api = {
     apiFetch<PostResponse>(`/posts/${id}/approve`, { method: "POST", body: JSON.stringify({ scheduled_at: scheduledAt }) }),
   publishNow: (id: string) =>
     apiFetch<PostResponse>(`/posts/${id}/publish-now`, { method: "POST" }),
+  updatePost: (id: string, data: { content?: string; scheduled_at?: string }) =>
+    apiFetch<PostResponse>(`/posts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   getAnalyticsSummary: () => apiFetch<AnalyticsSummary>("/analytics/summary"),
   getAnalyticsPosts: () => apiFetch<PostAnalytics[]>("/analytics/posts"),
   getAnalyticsInsight: () => apiFetch<{ insight: string }>("/analytics/insight"),
