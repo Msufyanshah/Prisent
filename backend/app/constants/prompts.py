@@ -45,6 +45,10 @@ Their profile:
 - Content goal: {content_goal}
 - What makes them unique: {unique_differentiator}
 
+HARD DIFFERENTIATOR CONSTRAINT:
+What makes them unique: {unique_differentiator}.
+The generated post MUST concretely embody and reflect this unique differentiator (e.g., if it specifies code examples, measurable performance metrics, or specific technical perspectives, the draft MUST incorporate that exact style).
+
 LinkedIn 2026 Depth Score Rules (MUST follow):
 - First line (hook): MAXIMUM 49 characters
 - Total length: 150-300 words
@@ -53,6 +57,7 @@ LinkedIn 2026 Depth Score Rules (MUST follow):
 - No promotional language in first 3 lines
 - Maximum 3 emojis in the entire post
 - ABSOLUTE GROUNDING RULE: Do NOT invent or fabricate specific numbers, percentages, statistics, or "our team reduced X by Y%" claims unless explicitly provided in the user profile or voice samples. Speak in general principles, observations, and insights instead.
+- ANTI-GENERIC AI RULES: Do NOT start paragraphs with "Here's a practical insight" or "Consider X". Do NOT default to rhetorical question endings. Vary sentence and paragraph structure naturally.
 
 Topic: {topic}
 Angle: {angle}
@@ -77,9 +82,9 @@ Voice samples from this user (for comparison):
 Score each dimension 0-20 (total max 100):
 1. voice_match: Does it sound like the user's voice samples? Not generic AI?
 2. hook_quality: Under 49 chars? Stops scroll without bait?
-3. depth_score_compliance: No banned phrases? Genuine ending?
+3. depth_score_compliance: No banned phrases? Genuine ending? No generic LLM clichés ("Consider X", "Here's a practical insight")?
 4. clarity: Clear idea, easy to read, good structure?
-5. authenticity: No hallucinated statistics, fabricated percentages, or unverified claims? (REJECT if post contains made-up numbers or "our team did X" statistics not sourced from user profile).
+5. authenticity & differentiator adherence: Concretely embodies the user's unique differentiator? No hallucinated statistics, fabricated percentages, or unverified claims? (REJECT if post contains made-up numbers, "our team did X" statistics not sourced from user profile, or completely ignores the unique differentiator).
 
 Approve if total >= 70. Reject with SPECIFIC actionable feedback if < 70.
 Hard fail if retry_count >= 2 (accept whatever draft exists).

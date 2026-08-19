@@ -10,13 +10,14 @@ from app.models.agent_job import AgentJob
 from app.agents.research_agent import run_research_agent
 from app.agents.writer_agent import run_writer_agent
 from app.agents.reviewer_agent import run_reviewer_agent
+from app.agents.hashtag_agent import run_hashtag_agent, append_hashtags_to_post
 from app.services.qdrant_client import get_client, COLLECTION
 from qdrant_client.models import Filter, FieldCondition, MatchValue
 from app.database import get_utc_now
 
 async def run_orchestrator(user_id: str, job_id: str, db: AsyncSession):
     """
-    Chains Research -> Writer -> Reviewer agents together with auto-retries.
+    Chains Research -> Writer -> Reviewer -> Hashtag agents together with auto-retries.
     Saves outputs to PostgreSQL tables.
     """
     job_uuid = uuid.UUID(job_id)
@@ -156,6 +157,11 @@ async def run_orchestrator(user_id: str, job_id: str, db: AsyncSession):
                 break
 
         # Finalizing pipeline outcome
+        final_content = writer_res.get("post_content", "") if writer_res else ""
+        if final_content:
+            tags = await run_hashtag_agent(final_content, niche=persona_obj.niche)
+            final_content = append_hashtags_to_post(final_content, tags)
+
         if reviewer_res.get("status") == "approved":
             job.status = "done"
             job.progress_message = "Generation pipeline completed successfully!"
@@ -165,7 +171,7 @@ async def run_orchestrator(user_id: str, job_id: str, db: AsyncSession):
             post = Post(
                 user_id=user_uuid,
                 agent_job_id=job_uuid,
-                content=writer_res.get("post_content"),
+                content=final_content,
                 hook=writer_res.get("hook"),
                 topic=research_res.get("recommended_topic"),
                 content_pillar=research_res.get("content_pillar"),
