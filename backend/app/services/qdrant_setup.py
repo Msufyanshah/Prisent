@@ -1,5 +1,5 @@
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams
+from qdrant_client.models import Distance, VectorParams, PayloadSchemaType
 from app.config import settings
 
 _cached_client = None
@@ -16,6 +16,15 @@ def _ensure_collection(client: QdrantClient):
                 )
             )
             print("Created collection: user_voice_memory")
+
+        try:
+            client.create_payload_index(
+                collection_name="user_voice_memory",
+                field_name="user_id",
+                field_schema=PayloadSchemaType.KEYWORD
+            )
+        except Exception:
+            pass
     except Exception as e:
         print(f"Failed to ensure collection: {e}")
 
@@ -33,9 +42,9 @@ def get_qdrant_client() -> QdrantClient:
         client = QdrantClient(
             url=settings.QDRANT_URL,
             api_key=settings.QDRANT_API_KEY or None,
-            timeout=1.0
+            timeout=3.0
         )
-        client.get_collections()
+        _ensure_collection(client)
         _cached_client = client
         return _cached_client
     except Exception as e:

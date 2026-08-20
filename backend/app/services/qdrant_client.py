@@ -70,64 +70,80 @@ async def retrieve_voice_memory(
     top_k: int = 5
 ) -> list[dict]:
     """Semantic search for voice memory samples relevant to a topic."""
-    query_vector = await embed_text(topic)
-    client = get_client()
+    try:
+        query_vector = await embed_text(topic)
+        client = get_client()
 
-    results = client.search(
-        collection_name=COLLECTION,
-        query_vector=query_vector,
-        query_filter=Filter(
-            must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))]
-        ),
-        limit=top_k,
-        with_payload=True
-    )
+        results = client.search(
+            collection_name=COLLECTION,
+            query_vector=query_vector,
+            query_filter=Filter(
+                must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))]
+            ),
+            limit=top_k,
+            with_payload=True
+        )
 
-    return [
-        {
-            "content": r.payload["content"],
-            "type": r.payload["type"],
-            "metadata": r.payload.get("metadata", {}),
-            "relevance_score": r.score
-        }
-        for r in results
-    ]
+        return [
+            {
+                "content": r.payload["content"],
+                "type": r.payload["type"],
+                "metadata": r.payload.get("metadata", {}),
+                "relevance_score": r.score
+            }
+            for r in results
+        ]
+    except Exception as e:
+        print(f"Warning: Qdrant retrieve_voice_memory failed: {e}")
+        return []
 
 async def count_user_documents(user_id: str) -> int:
     """Count how many memory documents a user has."""
-    client = get_client()
-    result = client.count(
-        collection_name=COLLECTION,
-        count_filter=Filter(
-            must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))]
+    try:
+        client = get_client()
+        result = client.count(
+            collection_name=COLLECTION,
+            count_filter=Filter(
+                must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))]
+            )
         )
-    )
-    return result.count
+        return result.count
+    except Exception as e:
+        print(f"Warning: Qdrant count_user_documents failed: {e}")
+        return 0
 
 async def delete_user_documents(user_id: str) -> int:
     """Delete all voice memory for a user. Returns count deleted."""
-    count = await count_user_documents(user_id)
-    if count == 0:
-        return 0
-    client = get_client()
-    client.delete(
-        collection_name=COLLECTION,
-        points_selector=Filter(
-            must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))]
+    try:
+        count = await count_user_documents(user_id)
+        if count == 0:
+            return 0
+        client = get_client()
+        client.delete(
+            collection_name=COLLECTION,
+            points_selector=Filter(
+                must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))]
+            )
         )
-    )
-    return count
+        return count
+    except Exception as e:
+        print(f"Warning: Qdrant delete_user_documents failed: {e}")
+        return 0
 
 async def delete_user_persona_notes(user_id: str) -> None:
     """Delete only the persona note documents for a user to avoid duplicates."""
-    client = get_client()
-    client.delete(
-        collection_name=COLLECTION,
-        points_selector=Filter(
-            must=[
-                FieldCondition(key="user_id", match=MatchValue(value=user_id)),
-                FieldCondition(key="type", match=MatchValue(value="persona_note"))
-            ]
+    try:
+        client = get_client()
+        client.delete(
+            collection_name=COLLECTION,
+            points_selector=Filter(
+                must=[
+                    FieldCondition(key="user_id", match=MatchValue(value=user_id)),
+                    FieldCondition(key="type", match=MatchValue(value="persona_note"))
+                ]
+            )
         )
-    )
+    except Exception as e:
+        print(f"Warning: Qdrant delete_user_persona_notes failed: {e}")
+
 
