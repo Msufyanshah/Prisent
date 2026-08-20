@@ -1,20 +1,14 @@
 "use client";
 import { useGenerationPoll } from "@/hooks/useGenerationPoll";
-import { ApiError } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
+import type { PostResponse } from "@/lib/types";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: "Starting...",
-  researching: "Researching...",
-  writing: "Writing...",
-  reviewing: "Reviewing...",
-  done: "Done",
-  failed: "Failed"
-};
-
 export default function DashboardHome() {
   const { job, polling, start } = useGenerationPoll();
+  const [latestPost, setLatestPost] = useState<PostResponse | null>(null);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
   const [terminalLogs, setTerminalLogs] = useState<string[]>([
     "[SYSTEM] Connection established.",
@@ -22,13 +16,38 @@ export default function DashboardHome() {
   ]);
 
   useEffect(() => {
+    loadLatestPost();
+  }, []);
+
+  useEffect(() => {
     if (job) {
       const time = new Date().toLocaleTimeString();
       let logMsg = `[${time}] [JOB:${job.job_id.slice(0, 6)}] Status: ${job.status.toUpperCase()}`;
       if (job.progress_message) logMsg += ` - ${job.progress_message}`;
       setTerminalLogs(prev => [...prev, logMsg]);
+
+      if (job.status === "done") {
+        if (job.post_id) {
+          api.getPost(job.post_id)
+            .then(p => setLatestPost(p))
+            .catch(() => loadLatestPost());
+        } else {
+          loadLatestPost();
+        }
+      }
     }
   }, [job]);
+
+  async function loadLatestPost() {
+    try {
+      const drafts = await api.listPosts("draft");
+      if (drafts && drafts.length > 0) {
+        setLatestPost(drafts[0]);
+      }
+    } catch (e) {
+      // Quiet fallback
+    }
+  }
 
   async function handleGenerate() {
     setError("");
@@ -42,17 +61,24 @@ export default function DashboardHome() {
     }
   }
 
+  function handleCopy() {
+    if (!latestPost) return;
+    navigator.clipboard.writeText(latestPost.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
   return (
     <div className="max-w-4xl mx-auto p-8 space-y-6">
       {/* Header Block with title and aligned generate button */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-text-primary">Welcome back, Alex</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-text-primary">Welcome back</h1>
           <div className="text-sm font-mono mt-2 flex items-center gap-2">
-            {job?.status === "done" ? (
+            {job?.status === "done" || latestPost ? (
               <>
                 <span className="h-2 w-2 rounded-full bg-success" />
-                <span className="text-text-muted font-medium">[SUCCESS] Post generated</span>
+                <span className="text-text-muted font-medium">[ACTIVE] Post draft ready</span>
               </>
             ) : (
               <>
@@ -69,30 +95,48 @@ export default function DashboardHome() {
             disabled={polling}
             className="rounded-[4px] bg-gradient-to-r from-[#ea580c] to-[#fbbf24] hover:from-[#d97706] hover:to-[#f59e0b] px-4 py-2 text-sm font-semibold text-background shadow-md transition-all duration-300 disabled:opacity-40"
           >
-            {polling ? "Generating today's post..." : "Generate today's post"}
+            {polling ? `[${job?.status?.toUpperCase() || 'GENERATING'}...]` : "Generate today's post"}
           </button>
         </div>
       </div>
 
-      {job?.status === "done" && (
-        <div className="border border-border-muted bg-surface rounded-container overflow-hidden max-w-3xl">
-          <div className="flex justify-between items-center bg-[#18181B] px-4 py-3 border-b border-border-muted">
-            <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-[#27272A] text-[#FAFAFA] tracking-wide">LINKEDIN</span>
-            <span className="text-xs font-mono font-medium text-text-muted">QUALITY SCORE <span className="text-[#FAFAFA] font-bold">94</span></span>
+      {/* Dynamic Terminal Status Output */}
+      {polling && (
+        <div className="border border-borderMuted bg-[#09090B] p-4 rounded-container font-mono text-xs text-textMuted space-y-1">
+          {terminalLogs.map((log, idx) => (
+            <div key={idx} className={log.includes("ERR") ? "text-danger" : log.includes("DONE") ? "text-success" : ""}>
+              {log}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Render Dynamic Latest Generated Post */}
+      {latestPost && (
+        <div className="border border-borderMuted bg-surface rounded-container overflow-hidden max-w-3xl">
+          <div className="flex justify-between items-center bg-[#18181B] px-4 py-3 border-b border-borderMuted">
+            <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-[#27272A] text-[#FAFAFA] tracking-wide uppercase">
+              {latestPost.content_pillar || "LINKEDIN"}
+            </span>
+            {latestPost.quality_score !== null && (
+              <span className="text-xs font-mono font-medium text-textMuted">
+                QUALITY SCORE <span className="text-[#FAFAFA] font-bold">{latestPost.quality_score}</span>/100
+              </span>
+            )}
           </div>
           <div className="p-4 space-y-4 bg-surface">
-            <p className="text-sm text-text-primary/95 leading-relaxed font-sans">
-              The future of B2B SaaS isn't just about adding AI features. It's about fundamentally restructuring execution layers to be AI-native from day one. When your infrastructure is built for autonomous agent interaction, the velocity of deployment shifts from weeks to minutes. Here's a technical breakdown of how we engineered the new execution
+            <p className="text-sm text-textPrimary/95 leading-relaxed font-sans whitespace-pre-wrap">
+              {latestPost.content}
             </p>
             <div className="flex justify-between items-center pt-2">
               <button
-                onClick={() => navigator.clipboard.writeText("The future of B2B SaaS isn't just about adding AI features...")}
-                className="text-xs text-text-muted hover:text-accent font-mono"
+                onClick={handleCopy}
+                className="text-xs text-textMuted hover:text-accent font-mono"
               >
-                [Copy to Clipboard]
+                {copied ? "[Copied to Clipboard!]" : "[Copy to Clipboard]"}
               </button>
               <Link href="/dashboard/posts" className="text-xs text-accent hover:underline font-mono">
-                [View all drafts →]
+                [View & edit all drafts →]
               </Link>
             </div>
           </div>

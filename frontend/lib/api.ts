@@ -65,6 +65,8 @@ export const api = {
     apiFetch<GenerationJob>(`/generate/${jobId}`),
   listPosts: (status?: string) =>
     apiFetch<PostResponse[]>(`/posts${status ? `?status_filter=${status}` : ""}`),
+  getPost: (id: string) =>
+    apiFetch<PostResponse>(`/posts/${id}`),
   approvePost: (id: string, scheduledAt: string) =>
     apiFetch<PostResponse>(`/posts/${id}/approve`, { method: "POST", body: JSON.stringify({ scheduled_at: scheduledAt }) }),
   publishNow: (id: string) =>
