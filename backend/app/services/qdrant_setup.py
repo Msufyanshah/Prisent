@@ -25,6 +25,15 @@ def _ensure_collection(client: QdrantClient):
             )
         except Exception:
             pass
+
+        try:
+            client.create_payload_index(
+                collection_name="user_voice_memory",
+                field_name="type",
+                field_schema=PayloadSchemaType.KEYWORD
+            )
+        except Exception:
+            pass
     except Exception as e:
         print(f"Failed to ensure collection: {e}")
 

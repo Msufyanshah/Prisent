@@ -11,7 +11,7 @@ from app.agents.research_agent import run_research_agent
 
 async def test_persona_flow():
     # 1. Create client and register user
-    async with httpx.AsyncClient(base_url="http://localhost:8000") as client:
+    async with httpx.AsyncClient(base_url="http://localhost:8000", timeout=30.0) as client:
         import uuid
         uid = str(uuid.uuid4())[:8]
         email = f"persona_{uid}@prisent.ai"
