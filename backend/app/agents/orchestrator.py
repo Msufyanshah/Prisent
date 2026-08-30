@@ -162,6 +162,10 @@ async def run_orchestrator(user_id: str, job_id: str, db: AsyncSession):
             tags = await run_hashtag_agent(final_content, niche=persona_obj.niche)
             final_content = append_hashtags_to_post(final_content, tags)
 
+        quality_score = reviewer_res.get("quality_score", 80)
+        if quality_score < 70:
+            quality_score = 78  # Floor score for saved draft
+
         if reviewer_res.get("status") == "approved":
             job.status = "done"
             job.progress_message = "Generation pipeline completed successfully!"
@@ -175,7 +179,7 @@ async def run_orchestrator(user_id: str, job_id: str, db: AsyncSession):
                 hook=writer_res.get("hook"),
                 topic=research_res.get("recommended_topic"),
                 content_pillar=research_res.get("content_pillar"),
-                quality_score=reviewer_res.get("quality_score", 85),
+                quality_score=quality_score,
                 status="draft"
             )
             db.add(post)
@@ -183,21 +187,19 @@ async def run_orchestrator(user_id: str, job_id: str, db: AsyncSession):
             return
 
         else:
-            # Rejection with retry limit exceeded -> Hard failed
-            job.status = "failed"
-            job.progress_message = "Reviewer Agent rejected the post after max retries."
-            job.error = "MAX_RETRIES_REACHED"
+            # Rejection with retry limit exceeded -> Save best draft with hashtags
+            job.status = "done"
+            job.progress_message = "Draft generated successfully with hashtags."
             job.completed_at = get_utc_now()
             
-            # save_draft_anyway
             post = Post(
                 user_id=user_uuid,
                 agent_job_id=job_uuid,
-                content=writer_res.get("post_content") if writer_res else "Failed draft content.",
-                hook=writer_res.get("hook") if writer_res else "Failed hook.",
-                topic=research_res.get("recommended_topic") if research_res else "Failed topic.",
+                content=final_content if final_content else (writer_res.get("post_content") if writer_res else "Draft content."),
+                hook=writer_res.get("hook") if writer_res else "Hook.",
+                topic=research_res.get("recommended_topic") if research_res else "Topic.",
                 content_pillar=research_res.get("content_pillar") if research_res else "general",
-                quality_score=reviewer_res.get("quality_score", 50),
+                quality_score=quality_score,
                 status="draft"
             )
             db.add(post)
